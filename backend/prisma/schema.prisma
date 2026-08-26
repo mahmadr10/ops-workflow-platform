@@ -1,0 +1,220 @@
+// Ops Platform - Prisma Schema
+// PostgreSQL. Workflows and statuses are fully dynamic (admin-defined), never hardcoded.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+  READONLY
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NotificationChannel {
+  EMAIL
+  SLACK
+  DISCORD
+  TEAMS
+  WEBHOOK
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  role          Role     @default(EMPLOYEE)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  createdItems      Item[]        @relation("CreatedItems")
+  assignedItems     Item[]        @relation("AssignedItems")
+  comments          Comment[]
+  activities        ActivityLog[]
+  attachments       Attachment[]
+  notifications     Notification[]
+  createdWorkflows  Workflow[]
+
+  @@map("users")
+}
+
+model Workflow {
+  id          String   @id @default(uuid())
+  name        String
+  key         String   @unique
+  description String?
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  statuses      WorkflowStatus[]
+  items         Item[]
+  reminderRules ReminderRule[]
+
+  @@map("workflows")
+}
+
+model WorkflowStatus {
+  id         String   @id @default(uuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  name       String
+  order      Int
+  color      String   @default("#6366f1")
+  isTerminal Boolean  @default(false)
+  isSuccess  Boolean  @default(false)
+
+  items         Item[]
+  reminderRules ReminderRule[]
+
+  @@unique([workflowId, name])
+  @@map("workflow_statuses")
+}
+
+model Label {
+  id    String @id @default(uuid())
+  name  String @unique
+  color String @default("#94a3b8")
+
+  items ItemLabel[]
+
+  @@map("labels")
+}
+
+model Item {
+  id           String    @id @default(uuid())
+  workflowId   String
+  workflow     Workflow  @relation(fields: [workflowId], references: [id])
+  statusId     String
+  status       WorkflowStatus @relation(fields: [statusId], references: [id])
+  title        String
+  description  String?
+  priority     Priority  @default(MEDIUM)
+  assigneeId   String?
+  assignee     User?     @relation("AssignedItems", fields: [assigneeId], references: [id])
+  createdById  String
+  createdBy    User      @relation("CreatedItems", fields: [createdById], references: [id])
+  dueDate      DateTime?
+  customFields Json      @default("{}")
+  riskScore    Int       @default(0)
+  aiSummary    String?
+  aiNextAction String?
+  statusEnteredAt DateTime @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  labels      ItemLabel[]
+  comments    Comment[]
+  attachments Attachment[]
+  activities  ActivityLog[]
+
+  @@index([workflowId, statusId])
+  @@map("items")
+}
+
+model ItemLabel {
+  itemId  String
+  labelId String
+  item    Item  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  label   Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, labelId])
+  @@map("item_labels")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  aiGenerated Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("comments")
+}
+
+model Attachment {
+  id           String   @id @default(uuid())
+  itemId       String
+  item         Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  filename     String
+  url          String
+  sizeBytes    Int
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@map("attachments")
+}
+
+// Immutable audit trail. Rows are never updated or deleted by the application.
+model ActivityLog {
+  id         String   @id @default(uuid())
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String
+  fromValue  String?
+  toValue    String?
+  meta       Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([itemId, createdAt])
+  @@map("activity_logs")
+}
+
+// IF status == X AND daysInStatus >= N THEN notify
+model ReminderRule {
+  id            String   @id @default(uuid())
+  workflowId    String
+  workflow      Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  statusId      String
+  status        WorkflowStatus @relation(fields: [statusId], references: [id], onDelete: Cascade)
+  daysInStatus  Int
+  message       String
+  channels      NotificationChannel[]
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@map("reminder_rules")
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String?
+  user      User?               @relation(fields: [userId], references: [id])
+  channel   NotificationChannel
+  subject   String
+  message   String
+  itemId    String?
+  status    NotificationStatus  @default(PENDING)
+  error     String?
+  createdAt DateTime            @default(now())
+  sentAt    DateTime?
+
+  @@map("notifications")
+}
