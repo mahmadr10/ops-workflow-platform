@@ -1,0 +1,203 @@
+openapi: 3.0.3
+info:
+  title: Ops Platform API
+  description: AI-Powered Operations & Workflow Management Platform
+  version: 1.0.0
+servers:
+  - url: /api
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+security:
+  - bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      security: []
+      responses: { "201": { description: Created } }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and receive a JWT
+      security: []
+      responses: { "200": { description: OK } }
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current authenticated user
+      responses: { "200": { description: OK } }
+  /workflows:
+    get:
+      tags: [Workflows]
+      summary: List all workflows with dynamic statuses
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Workflows]
+      summary: Create a workflow with fully custom statuses (Admin/Manager)
+      responses: { "201": { description: Created } }
+  /workflows/{id}:
+    get:
+      tags: [Workflows]
+      summary: Get one workflow
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+  /workflows/{id}/statuses:
+    post:
+      tags: [Workflows]
+      summary: Add a new status to an existing workflow
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "201": { description: Created } }
+  /items:
+    get:
+      tags: [Items]
+      summary: List / search items (query, assignee, priority, label, workflow, status, date)
+      parameters:
+        - { name: workflowId, in: query, schema: { type: string } }
+        - { name: statusId, in: query, schema: { type: string } }
+        - { name: assigneeId, in: query, schema: { type: string } }
+        - { name: priority, in: query, schema: { type: string } }
+        - { name: labelId, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: dueBefore, in: query, schema: { type: string } }
+        - { name: dueAfter, in: query, schema: { type: string } }
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Items]
+      summary: Create a new item (candidate, lead, ticket, task, ...)
+      responses: { "201": { description: Created } }
+  /items/{id}:
+    get:
+      tags: [Items]
+      summary: Get item detail with comments, attachments, activity timeline
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+    patch:
+      tags: [Items]
+      summary: Update item fields
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+    delete:
+      tags: [Items]
+      summary: Delete item
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: No Content } }
+  /items/{id}/status:
+    patch:
+      tags: [Items]
+      summary: Change item status (Kanban drag-and-drop). Logs activity + AI transition note.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+  /items/{id}/comments:
+    post:
+      tags: [Items]
+      summary: Add a comment
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "201": { description: Created } }
+  /items/{id}/attachments:
+    post:
+      tags: [Items]
+      summary: Attach a file (metadata)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "201": { description: Created } }
+  /items/{id}/ai-summary:
+    get:
+      tags: [AI]
+      summary: AI summary of item history
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+  /ai/standup:
+    get:
+      tags: [AI]
+      summary: AI daily standup summary of today's completed work
+      responses: { "200": { description: OK } }
+  /ai/risks:
+    get:
+      tags: [AI]
+      summary: AI-flagged blocked / at-risk items
+      responses: { "200": { description: OK } }
+  /ai/executive-summary:
+    post:
+      tags: [AI]
+      summary: AI-generated executive summary from live metrics
+      responses: { "200": { description: OK } }
+  /ai/status:
+    get:
+      tags: [AI]
+      summary: Which AI provider/model is currently wired in
+      responses: { "200": { description: OK } }
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Executive dashboard cards + chart datasets
+      responses: { "200": { description: OK } }
+  /reports/export.csv:
+    get:
+      tags: [Reports]
+      summary: Export items as CSV
+      responses: { "200": { description: OK } }
+  /reports/export.xlsx:
+    get:
+      tags: [Reports]
+      summary: Export items as Excel
+      responses: { "200": { description: OK } }
+  /reports/export.pdf:
+    get:
+      tags: [Reports]
+      summary: Export items as PDF
+      responses: { "200": { description: OK } }
+  /reports/summary:
+    get:
+      tags: [Reports]
+      summary: Weekly/Monthly AI executive summary
+      parameters: [{ name: range, in: query, schema: { type: string, enum: [week, month] } }]
+      responses: { "200": { description: OK } }
+  /users:
+    get:
+      tags: [Users]
+      summary: List users (for assignee pickers)
+      responses: { "200": { description: OK } }
+  /labels:
+    get:
+      tags: [Labels]
+      summary: List labels
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Labels]
+      summary: Create label
+      responses: { "201": { description: Created } }
+  /reminder-rules:
+    get:
+      tags: [Automation]
+      summary: List reminder automation rules
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Automation]
+      summary: Create a reminder rule (IF status == X AND N days THEN notify)
+      responses: { "201": { description: Created } }
+  /reminder-rules/run-now:
+    post:
+      tags: [Automation]
+      summary: Manually trigger the reminder/risk automation engine
+      responses: { "200": { description: OK } }
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List sent/failed notifications log
+      responses: { "200": { description: OK } }
+  /health:
+    get:
+      tags: [Observability]
+      summary: Health check
+      security: []
+      responses: { "200": { description: OK } }
+  /metrics:
+    get:
+      tags: [Observability]
+      summary: Prometheus metrics
+      security: []
+      responses: { "200": { description: OK } }
