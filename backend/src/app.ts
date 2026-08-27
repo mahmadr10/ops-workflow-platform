@@ -16,6 +16,7 @@ import { aiRouter } from './routes/ai.routes';
 import { dashboardRouter } from './routes/dashboard.routes';
 import { reportsRouter } from './routes/reports.routes';
 import { usersRouter, labelsRouter, reminderRulesRouter, notificationsRouter } from './routes/misc.routes';
+import { systemRouter } from './routes/system.routes';
 
 export function createApp() {
   const app = express();
@@ -71,6 +72,7 @@ export function createApp() {
   app.use('/api/labels', labelsRouter);
   app.use('/api/reminder-rules', reminderRulesRouter);
   app.use('/api/notifications', notificationsRouter);
+  app.use('/api/system', systemRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

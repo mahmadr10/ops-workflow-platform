@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: ops-platform-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    dockerCommand: sh -c "npx prisma migrate deploy && node dist/index.js"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ops-platform-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SEED_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: CORS_ORIGIN
+        sync: false
+      - key: AI_PROVIDER
+        value: groq
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: AI_MODEL
+        value: openai/gpt-oss-120b
+
+databases:
+  - name: ops-platform-db
+    plan: free
+    databaseName: ops_platform
+    user: ops_platform
