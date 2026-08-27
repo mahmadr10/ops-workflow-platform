@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { requireAuth, requireRole } from '../middleware/auth';
+import { requireAuth, requireRole, blockReadonlyWrites } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { reminderService } from '../services/reminder.service';
 
 // Small supporting routers: users list (for assignee pickers), labels, reminder rules, notifications log.
 
 export const usersRouter = Router();
-usersRouter.use(requireAuth);
+usersRouter.use(requireAuth, blockReadonlyWrites);
 usersRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
@@ -18,7 +18,7 @@ usersRouter.get(
 );
 
 export const labelsRouter = Router();
-labelsRouter.use(requireAuth);
+labelsRouter.use(requireAuth, blockReadonlyWrites);
 labelsRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
@@ -35,7 +35,7 @@ labelsRouter.post(
 );
 
 export const reminderRulesRouter = Router();
-reminderRulesRouter.use(requireAuth);
+reminderRulesRouter.use(requireAuth, blockReadonlyWrites);
 reminderRulesRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
@@ -69,7 +69,7 @@ reminderRulesRouter.post(
 );
 
 export const notificationsRouter = Router();
-notificationsRouter.use(requireAuth);
+notificationsRouter.use(requireAuth, blockReadonlyWrites);
 notificationsRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
