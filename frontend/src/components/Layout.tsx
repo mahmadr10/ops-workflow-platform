@@ -1,7 +1,8 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutGrid, GanttChartSquare, LineChart, FileText, LogOut, Sparkles, Bell } from 'lucide-react';
+import { LayoutGrid, GanttChartSquare, LineChart, FileText, LogOut, Sparkles } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import clsx from 'clsx';
+import NotificationBell from './NotificationBell';
 
 const nav = [
   { to: '/board', label: 'Board', icon: LayoutGrid },
@@ -70,7 +71,7 @@ export default function Layout() {
             AI-powered operations, live
           </div>
           <div className="flex items-center gap-3">
-            <Bell size={17} className="text-slate-400" />
+            <NotificationBell />
           </div>
         </header>
         <div className="flex-1 overflow-auto p-6">

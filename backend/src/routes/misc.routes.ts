@@ -70,9 +70,15 @@ reminderRulesRouter.post(
 
 export const notificationsRouter = Router();
 notificationsRouter.use(requireAuth, blockReadonlyWrites);
+
+// GET /api/notifications - by default, only the notifications addressed to the logged-in user
+// (this is what actually shows up in their bell icon). Admins/Managers can pass ?all=true to
+// see the full delivery log across every user, for oversight.
 notificationsRouter.get(
   '/',
-  asyncHandler(async (_req, res) => {
-    res.json(await prisma.notification.findMany({ orderBy: { createdAt: 'desc' }, take: 100 }));
+  asyncHandler(async (req, res) => {
+    const wantsAll = req.query.all === 'true' && (req.user!.role === 'ADMIN' || req.user!.role === 'MANAGER');
+    const where = wantsAll ? {} : { userId: req.user!.id };
+    res.json(await prisma.notification.findMany({ where, orderBy: { createdAt: 'desc' }, take: 100 }));
   })
 );
