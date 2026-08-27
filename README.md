@@ -6,7 +6,10 @@ Built to evolve into an ERP module: entities, workflows, and custom fields are a
 
 ## Live Demo
 
-Run locally with Docker Compose (see below). Deploying the provided images to Railway, Render, Fly.io, or any Docker host takes about five minutes; see `docs/DEPLOYMENT.md`.
+- **App:** https://ops-workflow-platform.vercel.app
+- **API:** https://backend-production-2be1.up.railway.app (Swagger docs at `/api/docs`, health at `/health`)
+
+Frontend is hosted on Vercel, backend + PostgreSQL on Railway. See `docs/DEPLOYMENT.md` for how to redeploy or run it locally with Docker Compose instead.
 
 ## Demo Credentials
 

@@ -2,7 +2,7 @@
 
 ## Timeline
 
-Built in a single focused session (~1 hour) using Claude Code as the primary development tool, working directly in the target repository from an empty folder to a working full-stack application with Docker Compose, seed data, tests, CI, and documentation.
+Built in a single focused session (starting under a 1-hour target) using Claude Code as the primary development tool, working directly in the target repository from an empty folder to a working full-stack application with Docker Compose, seed data, tests, CI, and documentation. The initial build finished within the hour; the session continued afterward for live testing, demo preparation, and the production deployment described below.
 
 ## Architecture Decisions
 
@@ -19,9 +19,13 @@ Built in a single focused session (~1 hour) using Claude Code as the primary dev
 
 ## Key Technical Challenges and Solutions
 
-- **Time budget vs. scope.** The brief is a 20-35 hour assignment compressed into roughly one hour. The solution was to build every rubric category to a genuinely working (not stubbed) depth rather than polishing a subset to production gloss: auth and RBAC are real, the workflow engine is real and data-driven, the Kanban board really drags and persists, the AI calls really hit a live LLM, exports really produce valid CSV/XLSX/PDF files. What was traded off: extensive test coverage, file-storage backends (S3/MinIO) for attachments beyond metadata rows, and a personally-operated live cloud deployment (see "What I'd improve," below).
+- **Time budget vs. scope.** The brief is a 20-35 hour assignment compressed into roughly one hour for the initial build. The solution was to build every rubric category to a genuinely working (not stubbed) depth rather than polishing a subset to production gloss: auth and RBAC are real, the workflow engine is real and data-driven, the Kanban board really drags and persists, the AI calls really hit a live LLM, exports really produce valid CSV/XLSX/PDF files.
 - **Keeping AI features from being a demo-only toggle.** Risk scoring and reminder evaluation run on a real hourly cron job against the actual database, not a button that only works when clicked, so the "AI agent monitors workflows every hour" bonus is implemented as infrastructure, not a script.
 - **Optimistic Kanban updates without a stale board on failure.** The drag handler updates the TanStack Query cache immediately, then reconciles from the server; a failed PATCH invalidates the query so the board self-corrects instead of silently drifting from the database.
+- **A model got retired mid-project.** The AI layer originally targeted Groq's `llama-3.3-70b-versatile`; Groq had since removed it from their catalog, so live calls were silently falling back to an offline message. Caught by actually calling the endpoint rather than trusting the code, and fixed by switching to `openai/gpt-oss-120b`.
+- **Prisma on Alpine Linux.** The first live deployment crash-looped with `Could not parse schema engine response`, a classic mismatch between Prisma's query engine binary and the OpenSSL version `node:20-alpine` ships. Fixed by installing `openssl` in the Docker image and adding `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]` to the Prisma schema.
+- **Free-tier hosting without a shell.** Render and Railway's free tiers don't offer interactive shell access to run a one-off seed script. Solved with a small protected HTTP endpoint (`POST /api/system/seed-demo-data`) that runs the same seeder over the network, guarded by a secret header and a no-op check if the database already has data, so it can never duplicate demo content.
+- **A "free" host asking for a card.** Render's free tier turned out to require card-based identity verification (a refunded $1 hold) to provision even free services. Since the goal was a genuinely zero-cost, zero-card deployment, pivoted to Railway, whose trial credit requires no card at all.
 
 ## What I Learned / What I Would Improve Next
 

@@ -1,6 +1,48 @@
 # Deployment
 
-## Docker Compose (any Docker host)
+## Live deployment used for this submission: Railway (backend + database) + Vercel (frontend)
+
+- **Frontend:** https://ops-workflow-platform.vercel.app
+- **Backend:** https://backend-production-2be1.up.railway.app
+
+Railway was chosen over Render because Render now requires a card for identity verification (a refunded $1 hold) even on its free tier; Railway's trial credit needs no card at all.
+
+### How it was deployed
+
+```bash
+# Backend + Postgres on Railway
+railway init --name ops-workflow-platform
+railway add --database postgres
+railway add --service backend
+cd backend
+railway variable set "DATABASE_URL=\${{Postgres.DATABASE_URL}}"
+railway variable set "JWT_SECRET=<random>"
+railway variable set "SEED_SECRET=<random>"
+railway variable set "AI_PROVIDER=groq"
+railway variable set "AI_API_KEY=<your Groq key>"
+railway variable set "AI_BASE_URL=https://api.groq.com/openai/v1"
+railway variable set "AI_MODEL=openai/gpt-oss-120b"
+railway variable set "CORS_ORIGIN=<your Vercel URL>"
+railway up --service backend
+railway domain   # generates the public URL
+
+# Load demo data (Railway's free tier has no interactive shell access from the CLI in this flow,
+# so this reuses the same shell-less seed endpoint built for Render)
+curl -X POST https://<your-backend>.up.railway.app/api/system/seed-demo-data \
+  -H "x-seed-secret: <the SEED_SECRET value you set above>"
+
+# Frontend on Vercel
+cd ../frontend
+vercel link --yes --project ops-workflow-platform
+vercel env add VITE_API_URL production   # paste https://<your-backend>.up.railway.app/api
+vercel --prod --yes
+```
+
+The backend's `Dockerfile` runs `npx prisma migrate deploy` automatically on every boot before starting the server, so schema migrations apply themselves on each deploy, no manual step needed.
+
+**A note on Alpine + Prisma:** `node:20-alpine` doesn't ship the OpenSSL version Prisma's engine expects by default, which shows up as `Could not parse schema engine response`. Fixed by installing `openssl` in the Docker image and adding `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]` to the Prisma `generator client` block.
+
+## Docker Compose (any Docker host, including fully offline)
 
 ```bash
 cp .env.example .env   # set JWT_SECRET and AI_API_KEY at minimum
@@ -10,51 +52,26 @@ docker compose exec backend npm run seed
 
 This brings up PostgreSQL, Redis, the API (port 4000), and the frontend (port 5173) with a single command.
 
-## Live deployment used for this submission (fully free): Render + Vercel
+## Alternative: Render (needs card verification)
 
-The backend and database run on Render's free tier, the frontend runs on Vercel's free tier. Neither needs a credit card.
+Render also works, using the `render.yaml` Blueprint at the repo root:
 
-### 1. Backend + database on Render
+1. Go to [dashboard.render.com/blueprints](https://dashboard.render.com/blueprints), sign in, click **New Blueprint Instance**, select this repo.
+2. Render provisions a free PostgreSQL database and a free Docker web service from `render.yaml`.
+3. It will ask for a card for identity verification (a $1 hold, refunded, not an actual charge) before creating the free services.
+4. Fill in `AI_API_KEY`, leave `CORS_ORIGIN` blank initially, click **Apply**.
+5. Once live, seed it the same way as Railway above, against the Render URL instead.
 
-Render reads the `render.yaml` Blueprint at the repo root, so setup is one click:
+**Free tier notes:** Render's web service spins down after 15 minutes of no traffic (30-60 second wake-up on the next request); its free database is deleted after 90 days unless upgraded.
 
-1. Go to [dashboard.render.com/blueprints](https://dashboard.render.com/blueprints) and sign in (GitHub login is easiest).
-2. Click **New Blueprint Instance**, connect your GitHub account, and select this repository.
-3. Render detects `render.yaml` and provisions two resources: a free PostgreSQL database (`ops-platform-db`) and a free Docker web service (`ops-platform-backend`).
-4. When prompted for the two secret values it can't generate on its own:
-   - `AI_API_KEY`: your Groq (or other OpenAI-compatible) API key
-   - `CORS_ORIGIN`: leave blank for now, you'll set it after step 2 below
-5. Click **Apply**. The first build takes a few minutes (it runs the Docker build, then `prisma migrate deploy` on boot).
-6. Once live, copy the backend's public URL, e.g. `https://ops-platform-backend.onrender.com`.
-7. Load demo data (no shell access on the free tier, so this is done through the API instead of `npm run seed`):
-   ```bash
-   curl -X POST https://ops-platform-backend.onrender.com/api/system/seed-demo-data \
-     -H "x-seed-secret: <the SEED_SECRET value Render generated, from the service's Environment tab>"
-   ```
+## Deploying to any other managed host (Fly.io, etc.)
 
-**Free tier notes:** the web service spins down after 15 minutes of no traffic and takes 30-60 seconds to wake up on the next request. The free database is deleted after 90 days unless upgraded.
-
-### 2. Frontend on Vercel
-
-```bash
-cd frontend
-vercel --prod --build-env VITE_API_URL=https://ops-platform-backend.onrender.com/api
-```
-
-Or through the dashboard: import the repo at [vercel.com/new](https://vercel.com/new), set the root directory to `frontend`, and add the environment variable `VITE_API_URL` = `https://<your-render-backend>.onrender.com/api`.
-
-### 3. Connect the two
-
-Go back to the Render backend's **Environment** tab and set `CORS_ORIGIN` to your Vercel URL (e.g. `https://ops-workflow-platform.vercel.app`), then redeploy the backend so it accepts requests from the frontend.
-
-## Deploying to any other managed host (Railway / Fly.io / etc.)
-
-Same shape as above, using `backend/Dockerfile` and `frontend/Dockerfile` directly:
+Same shape, using `backend/Dockerfile` and `frontend/Dockerfile` directly:
 
 1. **Database:** provision a managed PostgreSQL instance and copy its connection string into `DATABASE_URL`.
-2. **Backend service:** point the platform at `backend/` with `backend/Dockerfile`, set the environment variables listed in `backend/.env.example`, start command `npx prisma migrate deploy && node dist/index.js`.
+2. **Backend service:** point the platform at `backend/` with `backend/Dockerfile`, set the environment variables listed in `backend/.env.example`. Migrations run automatically on boot.
 3. **Frontend service:** point the platform at `frontend/` with `frontend/Dockerfile`, build arg `VITE_API_URL` set to the backend's public URL plus `/api`.
-4. **Seed demo data:** either `npm run seed` in the backend's shell, or `POST /api/system/seed-demo-data` if the host has no shell access (see above).
+4. **Seed demo data:** either `npm run seed` in the backend's shell, or `POST /api/system/seed-demo-data` if the host has no shell access.
 5. Update `CORS_ORIGIN` on the backend to the frontend's public URL.
 
 ## Environment Variables
