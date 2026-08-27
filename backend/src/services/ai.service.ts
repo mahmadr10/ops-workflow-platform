@@ -8,7 +8,7 @@ import { logger } from '../lib/logger';
  * AI_PROVIDER   - label only, used for logging (e.g. "groq")
  * AI_API_KEY    - provider API key
  * AI_BASE_URL   - OpenAI-compatible base url (Groq: https://api.groq.com/openai/v1)
- * AI_MODEL      - model id (e.g. llama-3.3-70b-versatile)
+ * AI_MODEL      - model id (e.g. openai/gpt-oss-120b)
  *
  * If no key is configured the service falls back to deterministic mock output so the rest of
  * the platform (routes, UI, tests) keeps working end to end without a live key.
@@ -16,7 +16,7 @@ import { logger } from '../lib/logger';
 
 const apiKey = process.env.AI_API_KEY;
 const baseURL = process.env.AI_BASE_URL || 'https://api.groq.com/openai/v1';
-const model = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
+const model = process.env.AI_MODEL || 'openai/gpt-oss-120b';
 const provider = process.env.AI_PROVIDER || 'groq';
 
 const client = apiKey ? new OpenAI({ apiKey, baseURL }) : null;

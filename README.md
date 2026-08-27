@@ -25,7 +25,7 @@ All seeded accounts share the password `Password123!`
 - **Backend:** Node.js, Express, TypeScript, Prisma ORM
 - **Database:** PostgreSQL
 - **Cache/Queue substrate:** Redis (provisioned; ready for BullMQ-based job queues as the platform grows)
-- **AI:** Provider-agnostic layer over any OpenAI-compatible endpoint (wired to Groq's Llama 3.3 70B by default; swap to OpenAI, DeepSeek, Ollama, or LM Studio via env vars only)
+- **AI:** Provider-agnostic layer over any OpenAI-compatible endpoint (wired to Groq's GPT-OSS 120B by default; swap to OpenAI, DeepSeek, Ollama, or LM Studio via env vars only)
 - **Auth:** JWT with role-based access control (Admin, Manager, Employee, Readonly)
 - **Observability:** Structured logging (pino), request tracing (correlation IDs), Prometheus metrics endpoint, health endpoint
 - **Docs:** OpenAPI 3 / Swagger UI at `/api/docs`

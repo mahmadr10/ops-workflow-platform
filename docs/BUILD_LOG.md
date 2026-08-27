@@ -7,7 +7,7 @@ Built in a single focused session (~1 hour) using Claude Code as the primary dev
 ## Architecture Decisions
 
 - **Fully dynamic workflow engine over hardcoded statuses.** The single hardest constraint in the brief ("no hardcoded statuses," "support ANY workflow") drove the data model: `Workflow` and `WorkflowStatus` are ordinary rows, and every part of the app (Kanban columns, dashboard grouping, reminder rules, activity log) references a `WorkflowStatus` id rather than a string enum. Recruitment, Sales, and Internal Tasks in the seed data are just three rows in that table, not three code paths.
-- **Provider-agnostic AI layer.** Rather than hardcoding an OpenAI SDK call, `ai.service.ts` wraps any OpenAI-compatible chat completions endpoint. The demo runs against Groq (Llama 3.3 70B) for a live, fast, free-tier-friendly key, but switching to OpenAI, DeepSeek, Qwen, or a local Ollama/LM Studio server is one environment variable, not a rewrite.
+- **Provider-agnostic AI layer.** Rather than hardcoding an OpenAI SDK call, `ai.service.ts` wraps any OpenAI-compatible chat completions endpoint. The demo runs against Groq (GPT-OSS 120B) for a live, fast, free-tier-friendly key, but switching to OpenAI, DeepSeek, Qwen, or a local Ollama/LM Studio server is one environment variable, not a rewrite.
 - **Single TypeScript stack (Express + Prisma + React) over a heavier framework (NestJS, etc.)** to maximize working surface area in the available time without sacrificing structure: the codebase still separates routes, services, and middleware cleanly, it is just not scaffolded with a framework's DI container.
 - **Append-only audit log.** `ActivityLog` rows are only ever inserted, satisfying the "immutable audit log" requirement without needing database-level triggers within the time budget.
 - **Notification delivery is itself audited**, independent of whether external credentials (Slack, SMTP) are present in a given environment, so the feature is demonstrably real rather than a stub, even when this submission's environment has no Slack workspace connected.
@@ -15,7 +15,7 @@ Built in a single focused session (~1 hour) using Claude Code as the primary dev
 ## AI Tools Used
 
 - **Claude Code** (Anthropic) wrote essentially the entire codebase in this session: the Prisma schema, every backend route/service/middleware file, the React frontend (pages, components, state, drag-and-drop board), Docker/Compose configuration, the OpenAPI spec, seed data, tests, and this documentation set, from the plain-text assignment brief. This accelerated development by roughly an order of magnitude versus hand-writing a full-stack app with this feature surface: schema design, route wiring, and UI components were generated and cross-referenced consistently in one pass rather than iteratively typed.
-- **Groq (Llama 3.3 70B)** is the live LLM wired into the running application itself (summaries, standups, risk suggestions, executive summaries) — this is a runtime dependency of the product, not a build-time tool.
+- **Groq (GPT-OSS 120B)** is the live LLM wired into the running application itself (summaries, standups, risk suggestions, executive summaries) - this is a runtime dependency of the product, not a build-time tool.
 
 ## Key Technical Challenges and Solutions
 
