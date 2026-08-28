@@ -29,3 +29,38 @@ systemRouter.post(
     res.json({ seeded: true, ...result });
   })
 );
+
+// POST /api/system/reset-demo-data
+// Wipes every workflow/item/user (in FK-safe order) and reseeds the pristine demo dataset.
+// Useful to restore the "stuck candidate" and other rehearsed demo scenarios to their original
+// state after real usage/testing has moved things around, right before a live demo. Same
+// SEED_SECRET guard as the seed endpoint, works identically on any host, no shell access needed.
+systemRouter.post(
+  '/reset-demo-data',
+  asyncHandler(async (req, res) => {
+    const configuredSecret = process.env.SEED_SECRET;
+    if (!configuredSecret) {
+      throw new ApiError(503, 'SEED_SECRET is not configured on this deployment');
+    }
+    if (req.headers['x-seed-secret'] !== configuredSecret) {
+      throw new ApiError(401, 'Invalid seed secret');
+    }
+
+    await prisma.$transaction([
+      prisma.notification.deleteMany(),
+      prisma.activityLog.deleteMany(),
+      prisma.itemLabel.deleteMany(),
+      prisma.comment.deleteMany(),
+      prisma.attachment.deleteMany(),
+      prisma.item.deleteMany(),
+      prisma.reminderRule.deleteMany(),
+      prisma.workflowStatus.deleteMany(),
+      prisma.workflow.deleteMany(),
+      prisma.label.deleteMany(),
+      prisma.user.deleteMany(),
+    ]);
+
+    const result = await seedDemoData(prisma);
+    res.json({ reset: true, ...result });
+  })
+);

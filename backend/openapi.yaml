@@ -204,6 +204,12 @@ paths:
       tags: [Notifications]
       summary: List sent/failed notifications log
       responses: { "200": { description: OK } }
+  /system/reset-demo-data:
+    post:
+      tags: [System]
+      summary: Wipe and reseed the pristine demo dataset (guarded by x-seed-secret header)
+      security: []
+      responses: { "200": { description: OK } }
   /health:
     get:
       tags: [Observability]
