@@ -75,9 +75,9 @@ export const aiService = {
     const capped = items.slice(0, 40);
     const list = capped.map((i) => `- ${i.title} [${i.status}] (owner: ${i.assignee})`).join('\n');
     return complete(
-      'You are generating a daily standup summary for a team. Group by status, highlight completed work first, keep it concise and professional. Plain conversational text only, no markdown formatting of any kind (no asterisks, headers, backticks, or tables), this is displayed as plain text with no markdown rendering. For a status heading, just write the status name followed by a colon on its own line.',
+      'You are generating a daily standup summary for a team. Highlight completed work first, then call out what is in progress and anything blocked, keep it concise and professional, a short digest for someone skimming it, not an exhaustive list. If there are many items, group similar statuses together and summarize with counts (e.g. "6 items moved into Review") instead of naming every single one. Plain conversational text only, no markdown formatting of any kind (no asterisks, headers, backticks, or tables), this is displayed as plain text with no markdown rendering.',
       `Items updated today (${capped.length} of ${items.length}):\n${list || 'No items updated today.'}`,
-      1000
+      1300
     );
   },
 
