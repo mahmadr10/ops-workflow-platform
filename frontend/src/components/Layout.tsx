@@ -1,8 +1,9 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutGrid, GanttChartSquare, LineChart, FileText, LogOut, Sparkles, MessageCircle, Users as UsersIcon, Zap } from 'lucide-react';
+import { LayoutGrid, GanttChartSquare, LineChart, FileText, LogOut, Sparkles, Users as UsersIcon, Zap } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import clsx from 'clsx';
 import NotificationBell from './NotificationBell';
+import ChatWidget from './ChatWidget';
 import { disconnectSocket } from '../api/socket';
 
 const nav = [
@@ -11,7 +12,6 @@ const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LineChart },
   { to: '/reports', label: 'Reports', icon: FileText },
   { to: '/automation', label: 'Automation', icon: Zap },
-  { to: '/chat', label: 'AI Assistant', icon: MessageCircle },
 ];
 
 export default function Layout() {
@@ -83,6 +83,7 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+      <ChatWidget />
     </div>
   );
 }
