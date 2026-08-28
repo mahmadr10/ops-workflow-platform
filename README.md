@@ -39,10 +39,10 @@ All seeded accounts share the password `Password123!`
 Admins create workflows with any number of custom-named statuses through the UI or API. Nothing is hardcoded: `Recruitment`, `Sales Pipeline`, and `Internal Tasks` ship as seed data, but any workflow can be created at runtime (see [Workflows.tsx](frontend/src/pages/Workflows.tsx)).
 
 ### 2. Kanban Board
-Drag-and-drop board (dnd-kit) with optimistic updates: the card moves instantly and the status change is persisted in the background; a failed request reverts the board (see [Board.tsx](frontend/src/pages/Board.tsx)).
+Drag-and-drop board (dnd-kit) with optimistic updates: the card moves instantly and the status change is persisted in the background; a failed request reverts the board. Instant refresh is real, not just local: a WebSocket (Socket.IO) layer pushes a live update to every other browser looking at that workflow the moment anyone creates, moves, edits, comments on, or deletes an item, so two people watching the same board see each other's changes with no manual reload. A Live/Offline badge next to the workflow picker shows the connection state (see [Board.tsx](frontend/src/pages/Board.tsx), [realtime.ts](backend/src/lib/realtime.ts)).
 
 ### 3. Entity Management
-Every item carries title, description, priority, assignee, due date, labels, attachments, comments, and a free-form JSON custom-fields bag, so the same schema fits a candidate, a sales lead, or a support ticket.
+Every item carries title, description, priority, assignee, due date, labels, real file attachments (uploaded, stored, and served back, not just metadata), comments, and a free-form JSON custom-fields bag, so the same schema fits a candidate, a sales lead, or a support ticket.
 
 ### 4. Activity Timeline
 Every mutation (creation, status change, priority change, assignee change, comments, attachments, reminders) is appended to an immutable `ActivityLog` table. The application never updates or deletes these rows.
@@ -74,7 +74,7 @@ Export to CSV, Excel (.xlsx), and PDF; generate an AI executive summary for the 
 Adapter-per-channel: Email (SMTP/nodemailer), Slack, Discord, Microsoft Teams, and generic webhooks. Every send is persisted with a `PENDING` -> `SENT`/`FAILED` audit trail regardless of whether the external channel is configured in a given environment.
 
 ### 10. Reminder Automation
-Declarative rules: `IF status == X AND daysInStatus >= N THEN notify`. Evaluated hourly by a cron job that also doubles as the bonus AI monitoring agent, recomputing risk scores and AI next-action suggestions for every active item.
+Declarative rules: `IF status == X AND daysInStatus >= N THEN notify`. Evaluated hourly by a cron job that also doubles as the bonus AI monitoring agent, recomputing risk scores and AI next-action suggestions for every active item. Authored from a real screen (**Automation** in the sidebar), not just the API, see [Automation.tsx](frontend/src/pages/Automation.tsx).
 
 ### 11. REST API
 Full CRUD across workflows, items, comments, attachments, labels, users, notifications, and reports, documented with OpenAPI 3 / Swagger UI at `/api/docs`.
@@ -96,6 +96,7 @@ Admins create as many team accounts as needed directly from the **Team Accounts*
 
 ## Bonus Challenges Implemented
 
+- **Real-time collaboration via WebSockets** - Socket.IO pushes live board updates to every connected viewer of a workflow the instant anyone changes an item, see [realtime.ts](backend/src/lib/realtime.ts) and [socket.ts](frontend/src/api/socket.ts).
 - **AI chatbot over operational data** ("Which candidates have been waiting the longest?") - `POST /api/ai/chat`, see [Chatbot.tsx](frontend/src/pages/Chatbot.tsx).
 - **GitHub Actions CI/CD pipeline** - builds, type-checks, and tests both apps on every push, see [.github/workflows/ci.yml](.github/workflows/ci.yml).
 - **Hourly AI monitoring agent** - the reminder engine recomputes risk scores and next-action suggestions for every active item every hour, unattended, see [reminder.service.ts](backend/src/services/reminder.service.ts).
@@ -137,7 +138,7 @@ backend/
     middleware/            JWT auth, RBAC, rate limiting, error handling, request tracing
 frontend/
   src/
-    pages/                Login, Board, Workflows, Dashboard, Reports, Chatbot, Users
+    pages/                Login, Board, Workflows, Dashboard, Reports, Automation, Chatbot, Users
     components/            Kanban column/card, item detail drawer, modals, layout, notification bell
 docs/                       architecture, ER diagram, deployment notes
 ```
