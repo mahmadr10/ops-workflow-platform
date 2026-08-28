@@ -17,6 +17,7 @@ import { dashboardRouter } from './routes/dashboard.routes';
 import { reportsRouter } from './routes/reports.routes';
 import { usersRouter, labelsRouter, reminderRulesRouter, notificationsRouter } from './routes/misc.routes';
 import { systemRouter } from './routes/system.routes';
+import { uploadDir } from './lib/upload';
 
 export function createApp() {
   const app = express();
@@ -45,6 +46,15 @@ export function createApp() {
 
   const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false });
   app.use('/api/auth', authLimiter);
+
+  // Uploaded attachments (real files on disk, served back statically). Cross-Origin-Resource-Policy
+  // is relaxed just for this path so the Vercel-hosted frontend can load files from this origin.
+  app.use(
+    '/uploads',
+    express.static(uploadDir, {
+      setHeaders: (res) => res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'),
+    })
+  );
 
   // Observability
   app.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() }));

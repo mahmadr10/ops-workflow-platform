@@ -20,3 +20,14 @@ api.interceptors.response.use(
     return Promise.reject(err);
   }
 );
+
+// Attachment URLs come back from the API as relative paths (e.g. "/uploads/xyz.png"). In dev
+// that resolves fine against the frontend's own origin thanks to the Vite proxy; in production
+// the frontend (Vercel) and backend (Railway) are different origins, so this resolves the
+// relative path against the real API origin instead.
+export function resolveFileUrl(url: string): string {
+  if (/^https?:\/\//.test(url)) return url;
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+  const origin = apiUrl?.startsWith('http') ? apiUrl.replace(/\/api\/?$/, '') : '';
+  return `${origin}${url}`;
+}

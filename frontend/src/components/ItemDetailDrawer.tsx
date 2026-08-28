@@ -1,15 +1,23 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, Sparkles, Send, Clock, Flame, RefreshCw } from 'lucide-react';
+import { X, Sparkles, Send, Clock, Flame, RefreshCw, Paperclip, Upload } from 'lucide-react';
 import { format } from 'date-fns';
-import { api } from '../api/client';
+import toast from 'react-hot-toast';
+import { api, resolveFileUrl } from '../api/client';
 import type { Item } from '../types';
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const priorities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 export default function ItemDetailDrawer({ itemId, onClose }: { itemId: string; onClose: () => void }) {
   const qc = useQueryClient();
   const [comment, setComment] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: item } = useQuery<Item>({
     queryKey: ['item', itemId],
@@ -35,6 +43,19 @@ export default function ItemDetailDrawer({ itemId, onClose }: { itemId: string; 
       setComment('');
       qc.invalidateQueries({ queryKey: ['item', itemId] });
     },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return api.post(`/items/${itemId}/attachments`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['item', itemId] });
+      toast.success('File attached');
+    },
+    onError: () => toast.error('Upload failed (10MB limit)'),
   });
 
   // AI summary loads automatically the first time this card is opened, no button needed. If the
@@ -143,6 +164,47 @@ export default function ItemDetailDrawer({ itemId, onClose }: { itemId: string; 
               </div>
             </div>
           )}
+
+          {/* Attachments: real files, uploaded and stored, not just metadata */}
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                <Paperclip size={12} /> Attachments ({item.attachments?.length ?? 0})
+              </label>
+              <button
+                className="text-xs font-medium text-brand-600 hover:underline flex items-center gap-1 disabled:opacity-50"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadMutation.isPending}
+              >
+                <Upload size={12} /> {uploadMutation.isPending ? 'Uploading...' : 'Upload file'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadMutation.mutate(file);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+            <div className="mt-2 space-y-1.5">
+              {item.attachments?.map((a) => (
+                <a
+                  key={a.id}
+                  href={resolveFileUrl(a.url)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between text-xs bg-slate-50 hover:bg-slate-100 rounded-lg px-2.5 py-1.5"
+                >
+                  <span className="truncate text-slate-700">{a.filename}</span>
+                  <span className="text-slate-400 shrink-0 ml-2">{formatSize(a.sizeBytes)}</span>
+                </a>
+              ))}
+              {!item.attachments?.length && <div className="text-xs text-slate-400">No files attached yet</div>}
+            </div>
+          </div>
 
           {/* AI panel: summary loads on its own, no click required */}
           <div className="rounded-lg border border-brand-100 bg-brand-50/50 p-3">
