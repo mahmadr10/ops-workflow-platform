@@ -196,6 +196,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'MEDIUM',
       assigneeId: employee.id,
       createdById: admin.id,
+      dueDate: daysFromNow(6),
       customFields: { source: 'Referral' },
     },
   });
@@ -208,6 +209,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'MEDIUM',
       assigneeId: manager.id,
       createdById: manager.id,
+      dueDate: daysFromNow(4),
       customFields: { source: 'Indeed' },
     },
   });
@@ -275,6 +277,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'LOW',
       assigneeId: employee.id,
       createdById: employee.id,
+      dueDate: daysFromNow(10),
       customFields: { dealValue: '$8,000', region: 'Europe' },
     },
   });
@@ -287,6 +290,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'MEDIUM',
       assigneeId: manager.id,
       createdById: manager.id,
+      dueDate: daysFromNow(6),
       customFields: { dealValue: '$22,000', region: 'Middle East' },
     },
   });
@@ -338,6 +342,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'LOW',
       assigneeId: employee.id,
       createdById: admin.id,
+      dueDate: daysFromNow(5),
       customFields: {},
     },
   });
@@ -350,6 +355,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'MEDIUM',
       assigneeId: employee.id,
       createdById: admin.id,
+      dueDate: daysFromNow(3),
       customFields: {},
     },
   });
@@ -362,6 +368,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'MEDIUM',
       assigneeId: manager.id,
       createdById: employee.id,
+      dueDate: daysFromNow(1),
       customFields: {},
     },
   });
@@ -374,6 +381,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'HIGH',
       assigneeId: employee.id,
       createdById: manager.id,
+      dueDate: daysFromNow(2),
       customFields: {},
     },
   });
@@ -400,6 +408,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'MEDIUM',
       assigneeId: manager.id,
       createdById: admin.id,
+      dueDate: daysFromNow(14),
       customFields: { client: 'Contoso Ltd', budget: '$18,000' },
     },
   });
@@ -412,6 +421,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'MEDIUM',
       assigneeId: employee.id,
       createdById: manager.id,
+      dueDate: daysFromNow(21),
       customFields: { client: 'Acme Corp', budget: '$60,000' },
     },
   });
@@ -467,6 +477,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       priority: 'MEDIUM',
       assigneeId: admin.id,
       createdById: manager.id,
+      dueDate: daysFromNow(7),
       customFields: { estimatedCost: '$12,000', vendor: 'Dell Business' },
     },
   });
@@ -477,6 +488,7 @@ export async function seedDemoData(prisma: PrismaClient) {
       title: 'Annual Figma Team License',
       description: 'Approved by finance, awaiting order placement.',
       priority: 'LOW',
+      dueDate: daysFromNow(3),
       assigneeId: admin.id,
       createdById: employee.id,
       customFields: { estimatedCost: '$1,200', vendor: 'Figma Inc' },

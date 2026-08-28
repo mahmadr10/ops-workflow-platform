@@ -10,12 +10,49 @@ interface ChatMessage {
   text: string;
 }
 
-const SUGGESTIONS = [
-  'Which candidates have been waiting the longest?',
-  'What is currently blocked or at risk?',
-  'What services does DigitalSofts offer?',
-  'Where are DigitalSofts offices located?',
-];
+// Suggested questions the AI can genuinely answer, tailored to what each department's data
+// actually contains. Two general/company ones are always shown too, since general knowledge is
+// available to everyone regardless of department.
+const DEPARTMENT_SUGGESTIONS: Record<Department, string[]> = {
+  ALL: [
+    'Which candidates have been waiting the longest?',
+    'What is currently blocked or at risk across the whole company?',
+    'Summarize the sales pipeline right now',
+    'What is overdue this week across every workflow?',
+  ],
+  RECRUITMENT: [
+    'Which candidates have been waiting the longest?',
+    'Who is stuck in the Interview stage?',
+    'Which candidates are overdue for a decision?',
+    'Summarize where every open candidate stands',
+  ],
+  SALES: [
+    'Which deals are closing soonest?',
+    'What is the highest-value deal in the pipeline?',
+    'Which leads have gone quiet?',
+    'Summarize the sales pipeline right now',
+  ],
+  INTERNAL_TASKS: [
+    'What tasks are overdue?',
+    'What is currently in Review or Testing?',
+    'Who has the most tasks assigned right now?',
+    'What is blocking the team this week?',
+  ],
+  CLIENT_PROJECTS: [
+    'Which client projects are closest to their deadline?',
+    'What is the status of the Globex ERP Integration?',
+    'Which projects are still in Planning or Kickoff?',
+    'Summarize project delivery risk right now',
+  ],
+  PROCUREMENT: [
+    'What purchase requests are still waiting on approval?',
+    'What has been ordered but not received yet?',
+    'What is the total estimated cost of open requests?',
+    'What was rejected recently and why?',
+  ],
+};
+
+const GENERAL_SUGGESTIONS = ['What services does DigitalSofts offer?', 'Who is the CEO of DigitalSofts?'];
 
 const DEPARTMENT_LABEL: Record<Department, string> = {
   ALL: 'All departments',
@@ -33,6 +70,7 @@ const WELCOME: ChatMessage = { role: 'assistant', text: "Ask me anything about y
 // data, e.g. "Which candidates have been waiting the longest?"
 export default function ChatWidget() {
   const department = useAuth((s) => s.user?.department) || 'ALL';
+  const suggestions = [...DEPARTMENT_SUGGESTIONS[department], ...GENERAL_SUGGESTIONS];
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [input, setInput] = useState('');
@@ -128,7 +166,7 @@ export default function ChatWidget() {
           {/* Suggestions (only before the first real question) */}
           {messages.length <= 1 && (
             <div className="flex flex-wrap gap-1.5 px-3 py-2 border-t border-slate-100 shrink-0">
-              {SUGGESTIONS.map((s) => (
+              {suggestions.map((s) => (
                 <button
                   key={s}
                   className="text-[11px] rounded-full border border-slate-200 px-2.5 py-1 hover:bg-slate-50"
