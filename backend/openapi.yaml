@@ -125,6 +125,11 @@ paths:
       tags: [AI]
       summary: AI-generated executive summary from live metrics
       responses: { "200": { description: OK } }
+  /ai/chat:
+    post:
+      tags: [AI]
+      summary: AI chatbot answering natural-language questions over live operational data
+      responses: { "200": { description: OK } }
   /ai/status:
     get:
       tags: [AI]
@@ -159,7 +164,17 @@ paths:
   /users:
     get:
       tags: [Users]
-      summary: List users (for assignee pickers)
+      summary: List users (for assignee pickers and admin management)
+      responses: { "200": { description: OK } }
+    post:
+      tags: [Users]
+      summary: Admin creates a new user account (auto-generates a password if none given)
+      responses: { "201": { description: Created } }
+  /users/{id}/role:
+    patch:
+      tags: [Users]
+      summary: Admin changes a user's role
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses: { "200": { description: OK } }
   /labels:
     get:
