@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutGrid, GanttChartSquare, LineChart, FileText, LogOut, Sparkles } from 'lucide-react';
+import { LayoutGrid, GanttChartSquare, LineChart, FileText, LogOut, Sparkles, MessageCircle, Users as UsersIcon } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import clsx from 'clsx';
 import NotificationBell from './NotificationBell';
@@ -9,11 +9,13 @@ const nav = [
   { to: '/workflows', label: 'Workflows', icon: GanttChartSquare },
   { to: '/dashboard', label: 'Dashboard', icon: LineChart },
   { to: '/reports', label: 'Reports', icon: FileText },
+  { to: '/chat', label: 'AI Assistant', icon: MessageCircle },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const items = user?.role === 'ADMIN' ? [...nav, { to: '/users', label: 'Team Accounts', icon: UsersIcon }] : nav;
 
   return (
     <div className="flex h-screen w-full bg-slate-50">
@@ -26,7 +28,7 @@ export default function Layout() {
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {nav.map((item) => (
+          {items.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
