@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { NotificationChannel } from '@prisma/client';
+import { broadcastNotification } from '../lib/realtime';
 
 /**
  * Notification engine. Adapter per channel. Every send is persisted to the Notification table
@@ -109,6 +110,7 @@ export const notificationService = {
       await prisma.notification.update({ where: { id: record.id }, data: { status: 'FAILED', error } });
       logger.warn({ channel: params.channel, error }, 'notification_failed_channel_not_configured_or_unreachable');
     }
+    if (params.userId) broadcastNotification(params.userId);
     return record;
   },
 };

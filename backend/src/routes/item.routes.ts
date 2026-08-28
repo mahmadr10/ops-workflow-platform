@@ -5,6 +5,8 @@ import { requireAuth, blockReadonlyWrites } from '../middleware/auth';
 import { asyncHandler, ApiError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
 import { aiService } from '../services/ai.service';
+import { upload } from '../lib/upload';
+import { broadcastItemsChanged } from '../lib/realtime';
 
 export const itemRouter = Router();
 itemRouter.use(requireAuth, blockReadonlyWrites);
@@ -93,6 +95,7 @@ itemRouter.post(
       include: itemInclude,
     });
     await logActivity({ itemId: item.id, actorId: req.user!.id, action: 'CREATED', toValue: item.title });
+    broadcastItemsChanged(item.workflowId, 'item_created');
     res.status(201).json(item);
   })
 );
@@ -132,14 +135,16 @@ itemRouter.patch(
     if (data.title || data.description || data.dueDate !== undefined || data.customFields) {
       await logActivity({ itemId: item.id, actorId: req.user!.id, action: 'FIELDS_UPDATED', meta: data as any });
     }
+    broadcastItemsChanged(item.workflowId, 'item_updated');
     res.json(item);
   })
 );
 
 const statusChangeSchema = z.object({ statusId: z.string().uuid() });
 
-// PATCH /api/items/:id/status - drives the Kanban drag-and-drop. Logs an audit entry and
-// generates an AI transition note automatically.
+// PATCH /api/items/:id/status - drives the Kanban drag-and-drop. Logs an audit entry, generates
+// an AI transition note automatically, and pushes a live update to every other viewer of this
+// workflow so their board refreshes instantly too, not just the browser that dragged the card.
 itemRouter.patch(
   '/:id/status',
   asyncHandler(async (req, res) => {
@@ -165,14 +170,16 @@ itemRouter.patch(
       fromValue: before.status.name,
       toValue: newStatus.name,
     });
+    broadcastItemsChanged(item.workflowId, 'status_changed');
 
     // Auto Notes: AI-generated professional note after every status transition (fire-and-forget,
     // never blocks the drag-and-drop response).
     aiService
       .generateTransitionNote(item.title, before.status.name, newStatus.name)
-      .then((note) =>
-        prisma.comment.create({ data: { itemId: item.id, authorId: req.user!.id, body: note, aiGenerated: true } })
-      )
+      .then(async (note) => {
+        await prisma.comment.create({ data: { itemId: item.id, authorId: req.user!.id, body: note, aiGenerated: true } });
+        broadcastItemsChanged(item.workflowId, 'ai_note_added');
+      })
       .catch(() => undefined);
 
     res.json(item);
@@ -183,7 +190,10 @@ itemRouter.patch(
 itemRouter.delete(
   '/:id',
   asyncHandler(async (req, res) => {
+    const item = await prisma.item.findUnique({ where: { id: req.params.id } });
+    if (!item) throw new ApiError(404, 'Item not found');
     await prisma.item.delete({ where: { id: req.params.id } });
+    broadcastItemsChanged(item.workflowId, 'item_deleted');
     res.status(204).send();
   })
 );
@@ -195,26 +205,39 @@ itemRouter.post(
   '/:id/comments',
   asyncHandler(async (req, res) => {
     const { body } = commentSchema.parse(req.body);
+    const item = await prisma.item.findUnique({ where: { id: req.params.id } });
+    if (!item) throw new ApiError(404, 'Item not found');
     const comment = await prisma.comment.create({
       data: { itemId: req.params.id, authorId: req.user!.id, body },
       include: { author: { select: { id: true, name: true } } },
     });
     await logActivity({ itemId: req.params.id, actorId: req.user!.id, action: 'COMMENT_ADDED' });
+    broadcastItemsChanged(item.workflowId, 'comment_added');
     res.status(201).json(comment);
   })
 );
 
-// ---- Attachments (metadata; file bytes handled by the storage layer / pre-signed URL in prod) ----
-const attachmentSchema = z.object({ filename: z.string().min(1), url: z.string().min(1), sizeBytes: z.number().int().nonnegative() });
-
+// ---- Attachments: real file uploads (multipart), stored on disk and served back statically.
+// Swappable for S3/MinIO later without touching the API shape (see lib/upload.ts).
 itemRouter.post(
   '/:id/attachments',
+  upload.single('file'),
   asyncHandler(async (req, res) => {
-    const data = attachmentSchema.parse(req.body);
+    const item = await prisma.item.findUnique({ where: { id: req.params.id } });
+    if (!item) throw new ApiError(404, 'Item not found');
+    if (!req.file) throw new ApiError(400, 'No file uploaded (expected multipart field "file")');
+
     const attachment = await prisma.attachment.create({
-      data: { itemId: req.params.id, uploadedById: req.user!.id, ...data },
+      data: {
+        itemId: req.params.id,
+        uploadedById: req.user!.id,
+        filename: req.file.originalname,
+        url: `/uploads/${req.file.filename}`,
+        sizeBytes: req.file.size,
+      },
     });
-    await logActivity({ itemId: req.params.id, actorId: req.user!.id, action: 'ATTACHMENT_ADDED', toValue: data.filename });
+    await logActivity({ itemId: req.params.id, actorId: req.user!.id, action: 'ATTACHMENT_ADDED', toValue: attachment.filename });
+    broadcastItemsChanged(item.workflowId, 'attachment_added');
     res.status(201).json(attachment);
   })
 );

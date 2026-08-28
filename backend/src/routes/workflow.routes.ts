@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler, ApiError } from '../middleware/errorHandler';
+import { broadcastWorkflowsChanged } from '../lib/realtime';
 
 export const workflowRouter = Router();
 workflowRouter.use(requireAuth);
@@ -77,6 +78,7 @@ workflowRouter.post(
       },
       include: { statuses: { orderBy: { order: 'asc' } } },
     });
+    broadcastWorkflowsChanged();
     res.status(201).json(workflow);
   })
 );
@@ -103,6 +105,7 @@ workflowRouter.post(
         isSuccess: data.isSuccess || false,
       },
     });
+    broadcastWorkflowsChanged();
     res.status(201).json(status);
   })
 );
