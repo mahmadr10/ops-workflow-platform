@@ -55,6 +55,9 @@ Powered by [ai.service.ts](backend/src/services/ai.service.ts), provider-agnosti
 - Suggested next action for stalled items (e.g. "Candidate waiting 9 days -> Schedule interview")
 - Auto-generated professional notes on every status transition
 - AI executive summaries for weekly/monthly reports
+- **AI chatbot** (bonus): ask plain-English questions about live operational data, e.g. "Which candidates have been waiting the longest?", from the **AI Assistant** page. The model only ever sees a real, freshly-queried snapshot of your actual items, so it cannot invent records.
+
+Most of these load automatically, the daily standup appears the moment the Board opens and an item's AI summary loads the first time its card is opened, no button click required; a small refresh icon regenerates either on demand.
 
 If no AI key is configured, the service falls back to a clearly labeled offline message so the rest of the platform keeps working end to end.
 
@@ -87,6 +90,15 @@ Structured JSON logs, a correlation ID on every request (`X-Request-Id`), a `/he
 
 ### 15. Deployment
 Docker Compose brings up PostgreSQL, Redis, the API, and the frontend with one command. See `docs/DEPLOYMENT.md` for pushing the same images to a managed host.
+
+### 16. Admin Account Management
+Admins create as many team accounts as needed directly from the **Team Accounts** page (Admin-only), no self-service signup flow required. A temporary password is generated and shown once if the admin doesn't set one; roles can be changed from the same page at any time.
+
+## Bonus Challenges Implemented
+
+- **AI chatbot over operational data** ("Which candidates have been waiting the longest?") - `POST /api/ai/chat`, see [Chatbot.tsx](frontend/src/pages/Chatbot.tsx).
+- **GitHub Actions CI/CD pipeline** - builds, type-checks, and tests both apps on every push, see [.github/workflows/ci.yml](.github/workflows/ci.yml).
+- **Hourly AI monitoring agent** - the reminder engine recomputes risk scores and next-action suggestions for every active item every hour, unattended, see [reminder.service.ts](backend/src/services/reminder.service.ts).
 
 ## Quick Start (Docker Compose)
 
@@ -125,8 +137,8 @@ backend/
     middleware/            JWT auth, RBAC, rate limiting, error handling, request tracing
 frontend/
   src/
-    pages/                Login, Board, Workflows, Dashboard, Reports
-    components/            Kanban column/card, item detail drawer, modals, layout
+    pages/                Login, Board, Workflows, Dashboard, Reports, Chatbot, Users
+    components/            Kanban column/card, item detail drawer, modals, layout, notification bell
 docs/                       architecture, ER diagram, deployment notes
 ```
 
