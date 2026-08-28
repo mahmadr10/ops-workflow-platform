@@ -4,9 +4,10 @@ import { Plus, Copy, Check, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { api } from '../api/client';
-import type { Role, User } from '../types';
+import type { Department, Role, User } from '../types';
 
 const roles: Role[] = ['ADMIN', 'MANAGER', 'EMPLOYEE', 'READONLY'];
+const departments: Department[] = ['ALL', 'RECRUITMENT', 'SALES', 'INTERNAL_TASKS', 'CLIENT_PROJECTS', 'PROCUREMENT'];
 
 const roleBadge: Record<Role, string> = {
   ADMIN: 'bg-purple-100 text-purple-700',
@@ -15,8 +16,18 @@ const roleBadge: Record<Role, string> = {
   READONLY: 'bg-amber-100 text-amber-700',
 };
 
+const departmentLabel: Record<Department, string> = {
+  ALL: 'All departments',
+  RECRUITMENT: 'Recruitment',
+  SALES: 'Sales',
+  INTERNAL_TASKS: 'Internal Tasks',
+  CLIENT_PROJECTS: 'Client Projects',
+  PROCUREMENT: 'Procurement',
+};
+
 // Admin-only page: create as many team accounts as needed, directly, no self-service signup
-// required. This is the "admin can add more and more accounts" requirement.
+// required. This is the "admin can add more and more accounts" requirement. Department controls
+// which workflow's operational data that person's AI chatbot is allowed to see.
 export default function Users() {
   const qc = useQueryClient();
   const { data: users } = useQuery<User[]>({ queryKey: ['users'], queryFn: async () => (await api.get('/users')).data });
@@ -24,17 +35,19 @@ export default function Users() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('EMPLOYEE');
+  const [department, setDepartment] = useState<Department>('ALL');
   const [lastCreated, setLastCreated] = useState<{ email: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
   const createMutation = useMutation({
-    mutationFn: () => api.post('/users', { name, email, role }),
+    mutationFn: () => api.post('/users', { name, email, role, department }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['users'] });
       setLastCreated({ email: res.data.user.email, password: res.data.temporaryPassword });
       setName('');
       setEmail('');
       setRole('EMPLOYEE');
+      setDepartment('ALL');
       toast.success('Account created');
     },
     onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to create account'),
@@ -47,6 +60,15 @@ export default function Users() {
       toast.success('Role updated');
     },
     onError: () => toast.error('Failed to update role'),
+  });
+
+  const departmentMutation = useMutation({
+    mutationFn: ({ id, department }: { id: string; department: Department }) => api.patch(`/users/${id}/department`, { department }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Department updated, their AI chatbot access has changed');
+    },
+    onError: () => toast.error('Failed to update department'),
   });
 
   function onSubmit(e: FormEvent) {
@@ -64,17 +86,20 @@ export default function Users() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="text-lg font-semibold">Team Accounts</h1>
-        <p className="text-sm text-slate-500">Admins can create as many accounts as the team needs, directly, without any signup flow.</p>
+        <p className="text-sm text-slate-500">
+          Admins can create as many accounts as the team needs, directly, without any signup flow. Department controls which
+          workflow's data that person's AI chatbot can see.
+        </p>
       </div>
 
       <div className="card p-5">
         <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
           <Plus size={15} /> Create a new account
         </h3>
-        <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
           <div>
             <label className="text-xs font-medium text-slate-500">Full name</label>
             <input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} placeholder="Hina Riaz" required />
@@ -96,6 +121,16 @@ export default function Users() {
               {roles.map((r) => (
                 <option key={r} value={r}>
                   {r}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-500">Department (AI access)</label>
+            <select className="input mt-1" value={department} onChange={(e) => setDepartment(e.target.value as Department)}>
+              {departments.map((d) => (
+                <option key={d} value={d}>
+                  {departmentLabel[d]}
                 </option>
               ))}
             </select>
@@ -131,6 +166,7 @@ export default function Users() {
                 <th className="pb-2 font-medium">Name</th>
                 <th className="pb-2 font-medium">Email</th>
                 <th className="pb-2 font-medium">Role</th>
+                <th className="pb-2 font-medium">Department (AI access)</th>
                 <th className="pb-2 font-medium">Created</th>
               </tr>
             </thead>
@@ -148,6 +184,19 @@ export default function Users() {
                       {roles.map((r) => (
                         <option key={r} value={r}>
                           {r}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="py-2">
+                    <select
+                      className="input py-1 text-xs w-auto"
+                      value={u.department || 'ALL'}
+                      onChange={(e) => departmentMutation.mutate({ id: u.id, department: e.target.value as Department })}
+                    >
+                      {departments.map((d) => (
+                        <option key={d} value={d}>
+                          {departmentLabel[d]}
                         </option>
                       ))}
                     </select>

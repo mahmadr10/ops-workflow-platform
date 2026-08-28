@@ -18,6 +18,18 @@ enum Role {
   READONLY
 }
 
+// Scopes which workflow's operational data a user's AI chatbot can see. ALL is for
+// admins/managers who oversee everything; every other value restricts the chatbot to that one
+// workflow's data (general company knowledge is always available to everyone, regardless).
+enum Department {
+  ALL
+  RECRUITMENT
+  SALES
+  INTERNAL_TASKS
+  CLIENT_PROJECTS
+  PROCUREMENT
+}
+
 enum Priority {
   LOW
   MEDIUM
@@ -45,6 +57,7 @@ model User {
   passwordHash  String
   name          String
   role          Role     @default(EMPLOYEE)
+  department    Department @default(ALL)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

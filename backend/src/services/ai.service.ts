@@ -106,13 +106,19 @@ export const aiService = {
   },
 
   // AI chatbot: answers natural-language questions about live operational data
-  // (e.g. "Which candidates have been waiting the longest?"). The caller supplies a compact,
-  // pre-fetched snapshot of the relevant items so the model only reasons over real data, never
-  // invents records.
-  async answerOperationalQuestion(question: string, dataSnapshot: string): Promise<string> {
+  // (e.g. "Which candidates have been waiting the longest?") AND general company knowledge.
+  // Access is department-walled: `scopeLabel` tells the model (in plain words) which
+  // department's operational data it was given, so it never leaks another department's records
+  // to a user who shouldn't see them. Company knowledge is always available to everyone.
+  async answerOperationalQuestion(
+    question: string,
+    dataSnapshot: string,
+    companyKnowledge: string,
+    scopeLabel: string
+  ): Promise<string> {
     return complete(
-      'You are an operations data assistant embedded in a workflow management platform. Answer the user\'s question using ONLY the data snapshot provided below, which is real and current. If the answer requires data not present in the snapshot, say so plainly instead of guessing. Be concise, use specific names/numbers from the data, and format lists with simple dashes when helpful. Never fabricate items, people, or numbers.',
-      `Data snapshot (JSON):\n${dataSnapshot}\n\nQuestion: ${question}`,
+      `You are the internal AI assistant for DigitalSofts' operations platform. You have two knowledge sources: (1) general company knowledge, available to everyone, and (2) live operational data, which is restricted to this user's own department: ${scopeLabel}. Answer using ONLY what is given below, never invent items, people, numbers, or company facts. If the question asks about operational data from a different department than the one provided, say plainly that you can only see that user's own department's data and don't answer it. General company questions (services, products, offices, leadership) can always be answered from the company knowledge section. Be concise and use specific names/numbers when they're available.`,
+      `=== General company knowledge (always available) ===\n${companyKnowledge}\n\n=== Live operational data (scope: ${scopeLabel}) ===\n${dataSnapshot}\n\nQuestion: ${question}`,
       900
     );
   },

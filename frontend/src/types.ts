@@ -1,11 +1,13 @@
 export type Role = 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'READONLY';
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type Department = 'ALL' | 'RECRUITMENT' | 'SALES' | 'INTERNAL_TASKS' | 'CLIENT_PROJECTS' | 'PROCUREMENT';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: Role;
+  department?: Department;
   createdAt?: string;
 }
 

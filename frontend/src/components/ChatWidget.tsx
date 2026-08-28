@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Sparkles, Send, Bot, User as UserIcon, X, MessageCircle } from 'lucide-react';
+import { Sparkles, Send, Bot, User as UserIcon, X, MessageCircle, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
+import { useAuth } from '../store/auth';
+import type { Department } from '../types';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -11,9 +13,18 @@ interface ChatMessage {
 const SUGGESTIONS = [
   'Which candidates have been waiting the longest?',
   'What is currently blocked or at risk?',
-  'Summarize the sales pipeline right now',
-  'What is overdue across all workflows?',
+  'What services does DigitalSofts offer?',
+  'Where are DigitalSofts offices located?',
 ];
+
+const DEPARTMENT_LABEL: Record<Department, string> = {
+  ALL: 'All departments',
+  RECRUITMENT: 'Recruitment only',
+  SALES: 'Sales only',
+  INTERNAL_TASKS: 'Internal Tasks only',
+  CLIENT_PROJECTS: 'Client Projects only',
+  PROCUREMENT: 'Procurement only',
+};
 
 const WELCOME: ChatMessage = { role: 'assistant', text: "Ask me anything about your workflows, I read the live data before answering." };
 
@@ -21,6 +32,7 @@ const WELCOME: ChatMessage = { role: 'assistant', text: "Ask me anything about y
 // navigation). Click the bubble to open the panel; it answers questions about live operational
 // data, e.g. "Which candidates have been waiting the longest?"
 export default function ChatWidget() {
+  const department = useAuth((s) => s.user?.department) || 'ALL';
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [input, setInput] = useState('');
@@ -69,7 +81,9 @@ export default function ChatWidget() {
               <Sparkles size={16} />
               <div>
                 <div className="text-sm font-semibold leading-tight">AI Operations Assistant</div>
-                <div className="text-[11px] text-brand-100 leading-tight">Reads live data before answering</div>
+                <div className="text-[11px] text-brand-100 leading-tight flex items-center gap-1">
+                  <Lock size={9} /> Access: {DEPARTMENT_LABEL[department]} + company info
+                </div>
               </div>
             </div>
             <button onClick={() => setOpen(false)} className="text-brand-100 hover:text-white">

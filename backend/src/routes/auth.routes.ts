@@ -28,7 +28,9 @@ authRouter.post(
     });
 
     const token = signToken({ id: user.id, email: user.email, role: user.role, name: user.name });
-    res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    res
+      .status(201)
+      .json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, department: user.department } });
   })
 );
 
@@ -46,7 +48,7 @@ authRouter.post(
     if (!valid) throw new ApiError(401, 'Invalid email or password');
 
     const token = signToken({ id: user.id, email: user.email, role: user.role, name: user.name });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, department: user.department } });
   })
 );
 

@@ -4,9 +4,30 @@ import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { aiService } from '../services/ai.service';
+import { COMPANY_KNOWLEDGE } from '../services/company-knowledge';
 
 export const aiRouter = Router();
 aiRouter.use(requireAuth);
+
+// Maps a user's Department to the one workflow key their chatbot may see operational data for.
+// ALL (admins/managers by default) sees every workflow.
+const DEPARTMENT_WORKFLOW_KEY: Record<string, string | null> = {
+  ALL: null,
+  RECRUITMENT: 'recruitment',
+  SALES: 'sales',
+  INTERNAL_TASKS: 'tasks',
+  CLIENT_PROJECTS: 'client-projects',
+  PROCUREMENT: 'procurement',
+};
+
+const DEPARTMENT_LABEL: Record<string, string> = {
+  ALL: 'All departments (full access)',
+  RECRUITMENT: 'Recruitment',
+  SALES: 'Sales Pipeline',
+  INTERNAL_TASKS: 'Internal Tasks',
+  CLIENT_PROJECTS: 'Client Projects',
+  PROCUREMENT: 'Procurement',
+};
 
 // GET /api/ai/standup - "Summarize today's completed work"
 aiRouter.get(
@@ -58,16 +79,23 @@ aiRouter.post(
 
 const chatSchema = z.object({ question: z.string().min(3).max(500) });
 
-// POST /api/ai/chat - AI chatbot that answers natural-language questions about live operational
-// data, e.g. "Which candidates have been waiting the longest?" or "What's blocked right now?"
-// The model only sees a real, current data snapshot pulled fresh from the database, it cannot
-// invent items or people that don't exist.
+// POST /api/ai/chat - AI chatbot, department-walled. Answers general company questions for
+// everyone, but operational data ("which candidates have been waiting longest") is restricted to
+// the logged-in user's own department, unless their department is ALL (admins/managers by
+// default). The model only sees a real, current data snapshot pulled fresh from the database, it
+// cannot invent items or people that don't exist, and it is told in plain words what its data
+// scope is so it refuses to answer about other departments.
 aiRouter.post(
   '/chat',
   asyncHandler(async (req, res) => {
     const { question } = chatSchema.parse(req.body);
 
+    const me = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { department: true } });
+    const department = me?.department || 'ALL';
+    const workflowKey = DEPARTMENT_WORKFLOW_KEY[department] ?? null;
+
     const items = await prisma.item.findMany({
+      where: workflowKey ? { workflow: { key: workflowKey } } : undefined,
       include: { status: true, workflow: true, assignee: { select: { name: true } } },
       orderBy: { riskScore: 'desc' },
       take: 200,
@@ -86,8 +114,9 @@ aiRouter.post(
       isTerminal: i.status.isTerminal,
     }));
 
-    const answer = await aiService.answerOperationalQuestion(question, JSON.stringify(snapshot));
-    res.json({ answer, itemsConsidered: snapshot.length });
+    const scopeLabel = DEPARTMENT_LABEL[department] || department;
+    const answer = await aiService.answerOperationalQuestion(question, JSON.stringify(snapshot), COMPANY_KNOWLEDGE, scopeLabel);
+    res.json({ answer, itemsConsidered: snapshot.length, department, scope: scopeLabel });
   })
 );
 

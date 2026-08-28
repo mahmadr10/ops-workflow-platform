@@ -15,12 +15,14 @@ usersRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, department: true, createdAt: true },
       orderBy: { createdAt: 'asc' },
     });
     res.json(users);
   })
 );
+
+const departmentEnum = z.enum(['ALL', 'RECRUITMENT', 'SALES', 'INTERNAL_TASKS', 'CLIENT_PROJECTS', 'PROCUREMENT']);
 
 function generatePassword(): string {
   // Readable-ish random password: e.g. "k3f9-Qm2x-7hLp"
@@ -31,12 +33,14 @@ const createUserSchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email(),
   role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE', 'READONLY']),
+  department: departmentEnum.optional(),
   password: z.string().min(8).max(72).optional(),
 });
 
 // POST /api/users - Admin creates a new team account directly (no self-service signup needed).
 // If no password is given, a random one is generated and returned once in the response so the
-// admin can hand it to the new user; it is never stored or shown again.
+// admin can hand it to the new user; it is never stored or shown again. `department` scopes what
+// operational data this user's AI chatbot can see (ALL for admins/managers who oversee everything).
 usersRouter.post(
   '/',
   requireRole('ADMIN'),
@@ -48,8 +52,8 @@ usersRouter.post(
     const temporaryPassword = data.password || generatePassword();
     const passwordHash = await bcrypt.hash(temporaryPassword, 10);
     const user = await prisma.user.create({
-      data: { name: data.name, email: data.email, role: data.role, passwordHash },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      data: { name: data.name, email: data.email, role: data.role, department: data.department || 'ALL', passwordHash },
+      select: { id: true, name: true, email: true, role: true, department: true, createdAt: true },
     });
 
     res.status(201).json({ user, temporaryPassword });
@@ -67,7 +71,25 @@ usersRouter.patch(
     const user = await prisma.user.update({
       where: { id: req.params.id },
       data: { role },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, role: true, department: true },
+    });
+    res.json(user);
+  })
+);
+
+const updateDepartmentSchema = z.object({ department: departmentEnum });
+
+// PATCH /api/users/:id/department - Admin changes which department's data this user's AI
+// chatbot can see.
+usersRouter.patch(
+  '/:id/department',
+  requireRole('ADMIN'),
+  asyncHandler(async (req, res) => {
+    const { department } = updateDepartmentSchema.parse(req.body);
+    const user = await prisma.user.update({
+      where: { id: req.params.id },
+      data: { department },
+      select: { id: true, name: true, email: true, role: true, department: true },
     });
     res.json(user);
   })

@@ -16,22 +16,28 @@ export async function seedDemoData(prisma: PrismaClient) {
   const admin = await prisma.user.upsert({
     where: { email: 'admin@digitalsofts.com' },
     update: {},
-    create: { email: 'admin@digitalsofts.com', name: 'M. Ahmad Admin', passwordHash: password, role: 'ADMIN' },
+    create: { email: 'admin@digitalsofts.com', name: 'M. Ahmad Admin', passwordHash: password, role: 'ADMIN', department: 'ALL' },
   });
   const manager = await prisma.user.upsert({
     where: { email: 'manager@digitalsofts.com' },
     update: {},
-    create: { email: 'manager@digitalsofts.com', name: 'Bilal Manager', passwordHash: password, role: 'MANAGER' },
+    create: { email: 'manager@digitalsofts.com', name: 'Bilal Manager', passwordHash: password, role: 'MANAGER', department: 'ALL' },
   });
   const employee = await prisma.user.upsert({
     where: { email: 'employee@digitalsofts.com' },
     update: {},
-    create: { email: 'employee@digitalsofts.com', name: 'Sara Employee', passwordHash: password, role: 'EMPLOYEE' },
+    create: {
+      email: 'employee@digitalsofts.com',
+      name: 'Sara Employee',
+      passwordHash: password,
+      role: 'EMPLOYEE',
+      department: 'INTERNAL_TASKS',
+    },
   });
   await prisma.user.upsert({
     where: { email: 'viewer@digitalsofts.com' },
     update: {},
-    create: { email: 'viewer@digitalsofts.com', name: 'Ali Viewer', passwordHash: password, role: 'READONLY' },
+    create: { email: 'viewer@digitalsofts.com', name: 'Ali Viewer', passwordHash: password, role: 'READONLY', department: 'ALL' },
   });
 
   // ---- Recruitment ----
