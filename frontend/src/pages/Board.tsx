@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Sparkles } from 'lucide-react';
+import { Plus, Search, Sparkles, SlidersHorizontal, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
-import type { Item, Workflow } from '../types';
+import type { Item, Label, Workflow } from '../types';
 import KanbanColumn from '../components/KanbanColumn';
 import ItemDetailDrawer from '../components/ItemDetailDrawer';
 import NewItemModal from '../components/NewItemModal';
@@ -14,10 +14,13 @@ export default function Board() {
   const [workflowId, setWorkflowId] = useState<string>('');
   const [search, setSearch] = useState('');
   const [priority, setPriority] = useState('');
+  const [assigneeId, setAssigneeId] = useState('');
+  const [labelId, setLabelId] = useState('');
+  const [dueAfter, setDueAfter] = useState('');
+  const [dueBefore, setDueBefore] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [showNewItem, setShowNewItem] = useState(false);
-  const [standup, setStandup] = useState<string | null>(null);
-  const [loadingStandup, setLoadingStandup] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -25,18 +28,33 @@ export default function Board() {
     queryKey: ['workflows'],
     queryFn: async () => (await api.get('/workflows')).data,
   });
+  const { data: users } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['users'],
+    queryFn: async () => (await api.get('/users')).data,
+  });
+  const { data: labels } = useQuery<Label[]>({ queryKey: ['labels'], queryFn: async () => (await api.get('/labels')).data });
 
   const activeWorkflow = useMemo(() => {
     if (!workflows?.length) return undefined;
     return workflows.find((w) => w.id === workflowId) || workflows[0];
   }, [workflows, workflowId]);
 
+  const filters = { search, priority, assigneeId, labelId, dueAfter, dueBefore };
+
   const { data: items } = useQuery<Item[]>({
-    queryKey: ['items', activeWorkflow?.id, search, priority],
+    queryKey: ['items', activeWorkflow?.id, filters],
     queryFn: async () =>
       (
         await api.get('/items', {
-          params: { workflowId: activeWorkflow?.id, q: search || undefined, priority: priority || undefined },
+          params: {
+            workflowId: activeWorkflow?.id,
+            q: search || undefined,
+            priority: priority || undefined,
+            assigneeId: assigneeId || undefined,
+            labelId: labelId || undefined,
+            dueAfter: dueAfter ? new Date(dueAfter).toISOString() : undefined,
+            dueBefore: dueBefore ? new Date(dueBefore).toISOString() : undefined,
+          },
         })
       ).data,
     enabled: !!activeWorkflow,
@@ -50,6 +68,18 @@ export default function Board() {
     },
   });
 
+  // AI Daily Standup loads automatically the moment the board opens, no button needed.
+  // Cached for 10 minutes so it doesn't re-run on every filter change; "Regenerate" forces a refresh.
+  const {
+    data: standupData,
+    isFetching: loadingStandup,
+    refetch: refetchStandup,
+  } = useQuery({
+    queryKey: ['ai-standup'],
+    queryFn: async () => (await api.get('/ai/standup')).data as { summary: string; itemCount: number },
+    staleTime: 10 * 60 * 1000,
+  });
+
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || !activeWorkflow) return;
@@ -59,22 +89,17 @@ export default function Board() {
     if (!current || current.statusId === newStatusId) return;
 
     // Optimistic update: move the card instantly, then persist.
-    qc.setQueryData<Item[]>(['items', activeWorkflow.id, search, priority], (old) =>
+    qc.setQueryData<Item[]>(['items', activeWorkflow.id, filters], (old) =>
       old?.map((i) => (i.id === itemId ? { ...i, statusId: newStatusId, status: activeWorkflow.statuses.find((s) => s.id === newStatusId)! } : i))
     );
     statusMutation.mutate({ id: itemId, statusId: newStatusId });
   }
 
-  async function runStandup() {
-    setLoadingStandup(true);
-    try {
-      const res = await api.get('/ai/standup');
-      setStandup(res.data.summary);
-    } catch {
-      toast.error('Standup generation failed');
-    } finally {
-      setLoadingStandup(false);
-    }
+  function clearFilters() {
+    setAssigneeId('');
+    setLabelId('');
+    setDueAfter('');
+    setDueBefore('');
   }
 
   if (!workflows) return <div className="text-sm text-slate-400">Loading workflows...</div>;
@@ -85,10 +110,12 @@ export default function Board() {
     items: (items || []).filter((i) => i.statusId === s.id),
   }));
 
+  const activeFilterCount = [assigneeId, labelId, dueAfter, dueBefore].filter(Boolean).length;
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <select className="input w-auto" value={activeWorkflow.id} onChange={(e) => setWorkflowId(e.target.value)}>
             {workflows.map((w) => (
               <option key={w.id} value={w.id}>
@@ -112,23 +139,79 @@ export default function Board() {
             <option value="HIGH">High</option>
             <option value="CRITICAL">Critical</option>
           </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="btn-secondary" onClick={runStandup} disabled={loadingStandup}>
-            <Sparkles size={15} /> {loadingStandup ? 'Generating...' : 'AI Daily Standup'}
+          <button
+            className={`btn-secondary relative ${activeFilterCount ? 'border-brand-400 text-brand-700' : ''}`}
+            onClick={() => setShowFilters((s) => !s)}
+          >
+            <SlidersHorizontal size={14} /> Filters
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 rounded-full bg-brand-600 text-white text-[10px] leading-4 text-center font-semibold">
+                {activeFilterCount}
+              </span>
+            )}
           </button>
-          <button className="btn-primary" onClick={() => setShowNewItem(true)}>
-            <Plus size={15} /> New item
-          </button>
         </div>
+        <button className="btn-primary" onClick={() => setShowNewItem(true)}>
+          <Plus size={15} /> New item
+        </button>
       </div>
 
-      {standup && (
-        <div className="card p-3 mb-4 border-brand-100 bg-brand-50/40 text-sm text-slate-700">
-          <div className="font-semibold text-brand-700 text-xs mb-1 flex items-center gap-1">
-            <Sparkles size={13} /> Today's AI Standup
+      {showFilters && (
+        <div className="card p-3 mb-3 flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="text-xs font-medium text-slate-500">Assignee</label>
+            <select className="input mt-1 w-40" value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
+              <option value="">Anyone</option>
+              {users?.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
           </div>
-          {standup}
+          <div>
+            <label className="text-xs font-medium text-slate-500">Label</label>
+            <select className="input mt-1 w-40" value={labelId} onChange={(e) => setLabelId(e.target.value)}>
+              <option value="">Any label</option>
+              {labels?.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-500">Due after</label>
+            <input type="date" className="input mt-1" value={dueAfter} onChange={(e) => setDueAfter(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-500">Due before</label>
+            <input type="date" className="input mt-1" value={dueBefore} onChange={(e) => setDueBefore(e.target.value)} />
+          </div>
+          {activeFilterCount > 0 && (
+            <button className="btn-ghost" onClick={clearFilters}>
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
+
+      {standupData && (
+        <div className="card p-3 mb-4 border-brand-100 bg-brand-50/40 text-sm text-slate-700">
+          <div className="flex items-center justify-between mb-1">
+            <div className="font-semibold text-brand-700 text-xs flex items-center gap-1">
+              <Sparkles size={13} /> Today's AI Standup ({standupData.itemCount} items updated)
+            </div>
+            <button
+              className="text-slate-400 hover:text-brand-600 disabled:opacity-50"
+              onClick={() => refetchStandup()}
+              disabled={loadingStandup}
+              title="Regenerate"
+            >
+              <RefreshCw size={13} className={loadingStandup ? 'animate-spin' : ''} />
+            </button>
+          </div>
+          <div className="whitespace-pre-wrap">{standupData.summary}</div>
         </div>
       )}
 

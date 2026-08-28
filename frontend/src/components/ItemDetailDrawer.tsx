@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, Sparkles, Send, Clock, Flame } from 'lucide-react';
+import { X, Sparkles, Send, Clock, Flame, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
-import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import type { Item } from '../types';
 
@@ -11,8 +10,6 @@ const priorities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 export default function ItemDetailDrawer({ itemId, onClose }: { itemId: string; onClose: () => void }) {
   const qc = useQueryClient();
   const [comment, setComment] = useState('');
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [loadingAi, setLoadingAi] = useState(false);
 
   const { data: item } = useQuery<Item>({
     queryKey: ['item', itemId],
@@ -40,19 +37,23 @@ export default function ItemDetailDrawer({ itemId, onClose }: { itemId: string; 
     },
   });
 
-  async function fetchAiSummary() {
-    setLoadingAi(true);
-    try {
-      const res = await api.get(`/items/${itemId}/ai-summary`);
-      setAiSummary(res.data.summary);
-    } catch {
-      toast.error('AI summary failed');
-    } finally {
-      setLoadingAi(false);
-    }
-  }
+  // AI summary loads automatically the first time this card is opened, no button needed. If the
+  // item already has a cached summary from a previous open (persisted server-side), that's shown
+  // instantly with zero network calls; "Regenerate" (small icon) forces a fresh one on demand.
+  const {
+    data: aiSummaryData,
+    isFetching: loadingAi,
+    refetch: refetchAiSummary,
+  } = useQuery({
+    queryKey: ['item-ai-summary', itemId],
+    queryFn: async () => (await api.get(`/items/${itemId}/ai-summary`)).data as { summary: string },
+    enabled: !!item && !item.aiSummary,
+    staleTime: 5 * 60 * 1000,
+  });
 
   if (!item) return null;
+
+  const aiSummary = aiSummaryData?.summary ?? item.aiSummary ?? null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -143,14 +144,19 @@ export default function ItemDetailDrawer({ itemId, onClose }: { itemId: string; 
             </div>
           )}
 
-          {/* AI panel */}
+          {/* AI panel: summary loads on its own, no click required */}
           <div className="rounded-lg border border-brand-100 bg-brand-50/50 p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-700">
                 <Sparkles size={14} /> AI Assistant
               </div>
-              <button className="text-xs font-medium text-brand-600 hover:underline" onClick={fetchAiSummary} disabled={loadingAi}>
-                {loadingAi ? 'Thinking...' : 'Summarize history'}
+              <button
+                className="text-slate-400 hover:text-brand-600 disabled:opacity-50"
+                onClick={() => refetchAiSummary()}
+                disabled={loadingAi}
+                title="Regenerate summary"
+              >
+                <RefreshCw size={13} className={loadingAi ? 'animate-spin' : ''} />
               </button>
             </div>
             {item.aiNextAction && (
@@ -158,6 +164,7 @@ export default function ItemDetailDrawer({ itemId, onClose }: { itemId: string; 
                 <span className="font-medium">Suggested next action:</span> {item.aiNextAction}
               </p>
             )}
+            {loadingAi && !aiSummary && <p className="text-xs text-slate-400 mt-2">Reading history and summarizing...</p>}
             {aiSummary && <p className="text-xs text-slate-600 mt-2 leading-relaxed">{aiSummary}</p>}
           </div>
 
