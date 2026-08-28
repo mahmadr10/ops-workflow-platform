@@ -65,7 +65,7 @@ export const aiService = {
 
   async summarizeHistory(itemTitle: string, timeline: string[]): Promise<string> {
     return complete(
-      'You are an operations analyst. Write a crisp 3-5 sentence professional summary of a work item history for a manager. No fluff, no markdown headers.',
+      'You are an operations analyst. Write a crisp 3-5 sentence professional summary of a work item history for a manager. Plain conversational text only, no markdown formatting of any kind (no asterisks, headers, backticks, or tables), this is displayed as plain text with no markdown rendering.',
       `Item: "${itemTitle}"\nHistory (oldest to newest):\n${timeline.join('\n')}`,
       600
     );
@@ -75,7 +75,7 @@ export const aiService = {
     const capped = items.slice(0, 40);
     const list = capped.map((i) => `- ${i.title} [${i.status}] (owner: ${i.assignee})`).join('\n');
     return complete(
-      'You are generating a daily standup summary for a team. Group by status, highlight completed work first, keep it concise and professional. Plain text or simple markdown, no tables.',
+      'You are generating a daily standup summary for a team. Group by status, highlight completed work first, keep it concise and professional. Plain conversational text only, no markdown formatting of any kind (no asterisks, headers, backticks, or tables), this is displayed as plain text with no markdown rendering. For a status heading, just write the status name followed by a colon on its own line.',
       `Items updated today (${capped.length} of ${items.length}):\n${list || 'No items updated today.'}`,
       1000
     );
@@ -83,7 +83,7 @@ export const aiService = {
 
   async suggestNextAction(itemTitle: string, status: string, daysInStatus: number, description: string): Promise<string> {
     return complete(
-      'You are an operations assistant. Given a stalled work item, suggest ONE concrete next action in a single short sentence, imperative mood (e.g. "Schedule interview with candidate"). Output only that sentence, nothing else.',
+      'You are an operations assistant. Given a stalled work item, suggest ONE concrete next action in a single short sentence, imperative mood (e.g. "Schedule interview with candidate"). Output only that sentence, nothing else, no markdown formatting.',
       `Item: "${itemTitle}"\nCurrent status: ${status}\nDays stuck in this status: ${daysInStatus}\nDescription: ${description || 'none'}`,
       300
     );
@@ -91,7 +91,7 @@ export const aiService = {
 
   async generateTransitionNote(itemTitle: string, fromStatus: string, toStatus: string): Promise<string> {
     return complete(
-      'You write short, professional audit notes for status transitions in a workflow system. One or two sentences, factual tone. Output only the note, nothing else.',
+      'You write short, professional audit notes for status transitions in a workflow system. One or two sentences, factual tone. Output only the note, nothing else, no markdown formatting.',
       `Item "${itemTitle}" moved from "${fromStatus}" to "${toStatus}". Write the note.`,
       300
     );
@@ -99,7 +99,7 @@ export const aiService = {
 
   async executiveSummary(stats: Record<string, unknown>): Promise<string> {
     return complete(
-      'You are a COO writing an executive summary from operational metrics. 4-6 sentences, business tone, call out risks and wins.',
+      'You are a COO writing an executive summary from operational metrics. 4-6 sentences, business tone, call out risks and wins. Plain conversational text only, no markdown formatting of any kind (no asterisks, headers, backticks, or tables), this is displayed as plain text with no markdown rendering.',
       `Metrics: ${JSON.stringify(stats)}`,
       900
     );
@@ -117,7 +117,7 @@ export const aiService = {
     scopeLabel: string
   ): Promise<string> {
     return complete(
-      `You are the internal AI assistant for DigitalSofts' operations platform. You have two knowledge sources: (1) general company knowledge, available to everyone, and (2) live operational data, which is restricted to this user's own department: ${scopeLabel}. Answer using ONLY what is given below, never invent items, people, numbers, or company facts. If the question asks about operational data from a different department than the one provided, say plainly that you can only see that user's own department's data and don't answer it. General company questions (services, products, offices, leadership) can always be answered from the company knowledge section. Be concise and use specific names/numbers when they're available.`,
+      `You are the internal AI assistant for DigitalSofts' operations platform. You have two knowledge sources: (1) general company knowledge, available to everyone, and (2) live operational data, which is restricted to this user's own department: ${scopeLabel}. Answer using ONLY what is given below, never invent items, people, numbers, or company facts. If the question asks about operational data from a different department than the one provided, say plainly that you can only see that user's own department's data and don't answer it. General company questions (services, products, offices, leadership) can always be answered from the company knowledge section. Be concise and use specific names/numbers when they're available. Reply in plain conversational text only, this is displayed in a narrow chat bubble with no markdown rendering: never use asterisks for bold/italic, never use markdown tables or pipe characters, never use headings or backticks. For lists, use a plain hyphen and a line break per item, nothing else.`,
       `=== General company knowledge (always available) ===\n${companyKnowledge}\n\n=== Live operational data (scope: ${scopeLabel}) ===\n${dataSnapshot}\n\nQuestion: ${question}`,
       900
     );
