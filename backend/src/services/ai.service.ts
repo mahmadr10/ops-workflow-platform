@@ -12,6 +12,13 @@ import { logger } from '../lib/logger';
  *
  * If no key is configured the service falls back to deterministic mock output so the rest of
  * the platform (routes, UI, tests) keeps working end to end without a live key.
+ *
+ * Reasoning models (gpt-oss, qwen3, etc.) spend part of the token budget on an internal
+ * "reasoning" pass before writing the visible answer, separate from `message.content`. If
+ * `max_tokens` is too small the visible answer gets cut off mid-sentence even though the request
+ * technically succeeded (finish_reason: "length"). Every call below budgets generously and logs
+ * a warning if a response is ever truncated, so this fails loudly instead of shipping half a
+ * sentence to a user.
  */
 
 const apiKey = process.env.AI_API_KEY;
@@ -21,7 +28,7 @@ const provider = process.env.AI_PROVIDER || 'groq';
 
 const client = apiKey ? new OpenAI({ apiKey, baseURL }) : null;
 
-async function complete(system: string, user: string, maxTokens = 500): Promise<string> {
+async function complete(system: string, user: string, maxTokens = 900): Promise<string> {
   if (!client) {
     logger.warn('ai_fallback_mock_used_no_api_key');
     return mockCompletion(system, user);
@@ -36,7 +43,11 @@ async function complete(system: string, user: string, maxTokens = 500): Promise<
         { role: 'user', content: user },
       ],
     });
-    return res.choices[0]?.message?.content?.trim() || 'No response generated.';
+    const choice = res.choices[0];
+    if (choice?.finish_reason === 'length') {
+      logger.warn({ maxTokens, provider }, 'ai_response_truncated_increase_max_tokens');
+    }
+    return choice?.message?.content?.trim() || 'No response generated.';
   } catch (err) {
     logger.error({ err, provider }, 'ai_completion_failed');
     return mockCompletion(system, user);
@@ -55,31 +66,34 @@ export const aiService = {
   async summarizeHistory(itemTitle: string, timeline: string[]): Promise<string> {
     return complete(
       'You are an operations analyst. Write a crisp 3-5 sentence professional summary of a work item history for a manager. No fluff, no markdown headers.',
-      `Item: "${itemTitle}"\nHistory (oldest to newest):\n${timeline.join('\n')}`
+      `Item: "${itemTitle}"\nHistory (oldest to newest):\n${timeline.join('\n')}`,
+      600
     );
   },
 
   async dailyStandup(items: { title: string; status: string; assignee: string }[]): Promise<string> {
-    const list = items.map((i) => `- ${i.title} [${i.status}] (owner: ${i.assignee})`).join('\n');
+    const capped = items.slice(0, 40);
+    const list = capped.map((i) => `- ${i.title} [${i.status}] (owner: ${i.assignee})`).join('\n');
     return complete(
-      'You are generating a daily standup summary for a team. Group by status, highlight completed work first, keep it concise and professional.',
-      `Items updated today:\n${list || 'No items updated today.'}`
+      'You are generating a daily standup summary for a team. Group by status, highlight completed work first, keep it concise and professional. Plain text or simple markdown, no tables.',
+      `Items updated today (${capped.length} of ${items.length}):\n${list || 'No items updated today.'}`,
+      1000
     );
   },
 
   async suggestNextAction(itemTitle: string, status: string, daysInStatus: number, description: string): Promise<string> {
     return complete(
-      'You are an operations assistant. Given a stalled work item, suggest ONE concrete next action in a single short sentence, imperative mood (e.g. "Schedule interview with candidate").',
+      'You are an operations assistant. Given a stalled work item, suggest ONE concrete next action in a single short sentence, imperative mood (e.g. "Schedule interview with candidate"). Output only that sentence, nothing else.',
       `Item: "${itemTitle}"\nCurrent status: ${status}\nDays stuck in this status: ${daysInStatus}\nDescription: ${description || 'none'}`,
-      80
+      300
     );
   },
 
   async generateTransitionNote(itemTitle: string, fromStatus: string, toStatus: string): Promise<string> {
     return complete(
-      'You write short, professional audit notes for status transitions in a workflow system. One or two sentences, factual tone.',
+      'You write short, professional audit notes for status transitions in a workflow system. One or two sentences, factual tone. Output only the note, nothing else.',
       `Item "${itemTitle}" moved from "${fromStatus}" to "${toStatus}". Write the note.`,
-      100
+      300
     );
   },
 
@@ -87,7 +101,19 @@ export const aiService = {
     return complete(
       'You are a COO writing an executive summary from operational metrics. 4-6 sentences, business tone, call out risks and wins.',
       `Metrics: ${JSON.stringify(stats)}`,
-      500
+      900
+    );
+  },
+
+  // AI chatbot: answers natural-language questions about live operational data
+  // (e.g. "Which candidates have been waiting the longest?"). The caller supplies a compact,
+  // pre-fetched snapshot of the relevant items so the model only reasons over real data, never
+  // invents records.
+  async answerOperationalQuestion(question: string, dataSnapshot: string): Promise<string> {
+    return complete(
+      'You are an operations data assistant embedded in a workflow management platform. Answer the user\'s question using ONLY the data snapshot provided below, which is real and current. If the answer requires data not present in the snapshot, say so plainly instead of guessing. Be concise, use specific names/numbers from the data, and format lists with simple dashes when helpful. Never fabricate items, people, or numbers.',
+      `Data snapshot (JSON):\n${dataSnapshot}\n\nQuestion: ${question}`,
+      900
     );
   },
 
