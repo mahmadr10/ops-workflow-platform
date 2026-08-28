@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Sparkles, SlidersHorizontal, RefreshCw, Radio } from 'lucide-react';
+import { Plus, Search, Sparkles, SlidersHorizontal, RefreshCw, Radio, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { getSocket } from '../api/socket';
@@ -24,6 +24,7 @@ export default function Board() {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [showNewItem, setShowNewItem] = useState(false);
   const [live, setLive] = useState(false);
+  const [standupOpen, setStandupOpen] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -150,8 +151,8 @@ export default function Board() {
   const activeFilterCount = [statusId, assigneeId, labelId, dueAfter, dueBefore].filter(Boolean).length;
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-3 shrink-0">
         <div className="flex items-center gap-2 flex-wrap">
           <select className="input w-auto" value={activeWorkflow.id} onChange={(e) => setWorkflowId(e.target.value)}>
             {workflows.map((w) => (
@@ -203,7 +204,7 @@ export default function Board() {
       </div>
 
       {showFilters && (
-        <div className="card p-3 mb-3 flex flex-wrap gap-3 items-end">
+        <div className="card p-3 mb-3 flex flex-wrap gap-3 items-end shrink-0">
           <div>
             <label className="text-xs font-medium text-slate-500">Status</label>
             <select className="input mt-1 w-40" value={statusId} onChange={(e) => setStatusId(e.target.value)}>
@@ -253,27 +254,36 @@ export default function Board() {
         </div>
       )}
 
+      {/* Collapsed by default so the board is always visible right away; data is already loaded
+          in the background (no click needed to fetch it), only the panel needs a click to open. */}
       {standupData && (
-        <div className="card p-3 mb-4 border-brand-100 bg-brand-50/40 text-sm text-slate-700">
-          <div className="flex items-center justify-between mb-1">
-            <div className="font-semibold text-brand-700 text-xs flex items-center gap-1">
-              <Sparkles size={13} /> Today's AI Standup ({standupData.itemCount} items updated)
+        <div className="card mb-3 border-brand-100 bg-brand-50/40 text-sm text-slate-700 shrink-0">
+          <button className="flex items-center justify-between w-full p-3" onClick={() => setStandupOpen((o) => !o)}>
+            <div className="font-semibold text-brand-700 text-xs flex items-center gap-1.5">
+              <Sparkles size={13} /> Today's AI Standup ready ({standupData.itemCount} items updated)
             </div>
-            <button
-              className="text-slate-400 hover:text-brand-600 disabled:opacity-50"
-              onClick={() => refetchStandup()}
-              disabled={loadingStandup}
-              title="Regenerate"
-            >
-              <RefreshCw size={13} className={loadingStandup ? 'animate-spin' : ''} />
-            </button>
-          </div>
-          <div className="whitespace-pre-wrap">{standupData.summary}</div>
+            <div className="flex items-center gap-2">
+              <span
+                role="button"
+                tabIndex={0}
+                className="text-slate-400 hover:text-brand-600 disabled:opacity-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  refetchStandup();
+                }}
+                title="Regenerate"
+              >
+                <RefreshCw size={13} className={loadingStandup ? 'animate-spin' : ''} />
+              </span>
+              {standupOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </div>
+          </button>
+          {standupOpen && <div className="whitespace-pre-wrap px-3 pb-3">{standupData.summary}</div>}
         </div>
       )}
 
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto flex-1 pb-2">
+        <div className="flex gap-4 overflow-x-auto flex-1 min-h-0 pb-2">
           {grouped.map((g) => (
             <KanbanColumn key={g.status.id} status={g.status} items={g.items} onCardClick={setSelectedItem} />
           ))}
