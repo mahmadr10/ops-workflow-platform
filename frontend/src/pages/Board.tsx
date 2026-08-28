@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Sparkles, SlidersHorizontal, RefreshCw } from 'lucide-react';
+import { Plus, Search, Sparkles, SlidersHorizontal, RefreshCw, Radio } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../api/client';
+import { getSocket } from '../api/socket';
 import type { Item, Label, Workflow } from '../types';
 import KanbanColumn from '../components/KanbanColumn';
 import ItemDetailDrawer from '../components/ItemDetailDrawer';
@@ -14,6 +15,7 @@ export default function Board() {
   const [workflowId, setWorkflowId] = useState<string>('');
   const [search, setSearch] = useState('');
   const [priority, setPriority] = useState('');
+  const [statusId, setStatusId] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [labelId, setLabelId] = useState('');
   const [dueAfter, setDueAfter] = useState('');
@@ -21,6 +23,7 @@ export default function Board() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [showNewItem, setShowNewItem] = useState(false);
+  const [live, setLive] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -39,7 +42,7 @@ export default function Board() {
     return workflows.find((w) => w.id === workflowId) || workflows[0];
   }, [workflows, workflowId]);
 
-  const filters = { search, priority, assigneeId, labelId, dueAfter, dueBefore };
+  const filters = { search, priority, statusId, assigneeId, labelId, dueAfter, dueBefore };
 
   const { data: items } = useQuery<Item[]>({
     queryKey: ['items', activeWorkflow?.id, filters],
@@ -50,6 +53,7 @@ export default function Board() {
             workflowId: activeWorkflow?.id,
             q: search || undefined,
             priority: priority || undefined,
+            statusId: statusId || undefined,
             assigneeId: assigneeId || undefined,
             labelId: labelId || undefined,
             dueAfter: dueAfter ? new Date(dueAfter).toISOString() : undefined,
@@ -59,6 +63,38 @@ export default function Board() {
       ).data,
     enabled: !!activeWorkflow,
   });
+
+  // Real-time board: join the active workflow's room and refetch the instant anyone (including
+  // this browser, from another tab) creates, moves, edits, or comments on an item. This is what
+  // makes "instant refresh" real, not just the optimistic local drag.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !activeWorkflow) return;
+
+    const onConnect = () => setLive(true);
+    const onDisconnect = () => setLive(false);
+    const onItemsChanged = (payload: { workflowId: string }) => {
+      if (payload.workflowId === activeWorkflow.id) {
+        qc.invalidateQueries({ queryKey: ['items', activeWorkflow.id] });
+      }
+    };
+    const onWorkflowsChanged = () => qc.invalidateQueries({ queryKey: ['workflows'] });
+
+    socket.emit('workflow:join', activeWorkflow.id);
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('items:changed', onItemsChanged);
+    socket.on('workflows:changed', onWorkflowsChanged);
+    setLive(socket.connected);
+
+    return () => {
+      socket.emit('workflow:leave', activeWorkflow.id);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('items:changed', onItemsChanged);
+      socket.off('workflows:changed', onWorkflowsChanged);
+    };
+  }, [activeWorkflow?.id, qc]);
 
   const statusMutation = useMutation({
     mutationFn: ({ id, statusId }: { id: string; statusId: string }) => api.patch(`/items/${id}/status`, { statusId }),
@@ -96,6 +132,7 @@ export default function Board() {
   }
 
   function clearFilters() {
+    setStatusId('');
     setAssigneeId('');
     setLabelId('');
     setDueAfter('');
@@ -110,7 +147,7 @@ export default function Board() {
     items: (items || []).filter((i) => i.statusId === s.id),
   }));
 
-  const activeFilterCount = [assigneeId, labelId, dueAfter, dueBefore].filter(Boolean).length;
+  const activeFilterCount = [statusId, assigneeId, labelId, dueAfter, dueBefore].filter(Boolean).length;
 
   return (
     <div className="flex flex-col h-full">
@@ -123,6 +160,15 @@ export default function Board() {
               </option>
             ))}
           </select>
+          <span
+            className={`flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full ${
+              live ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'
+            }`}
+            title={live ? 'Real-time updates connected' : 'Real-time updates offline'}
+          >
+            <Radio size={11} className={live ? 'animate-pulse' : ''} />
+            {live ? 'Live' : 'Offline'}
+          </span>
           <div className="relative">
             <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
             <input
@@ -158,6 +204,17 @@ export default function Board() {
 
       {showFilters && (
         <div className="card p-3 mb-3 flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="text-xs font-medium text-slate-500">Status</label>
+            <select className="input mt-1 w-40" value={statusId} onChange={(e) => setStatusId(e.target.value)}>
+              <option value="">Any status</option>
+              {activeWorkflow.statuses.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="text-xs font-medium text-slate-500">Assignee</label>
             <select className="input mt-1 w-40" value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>

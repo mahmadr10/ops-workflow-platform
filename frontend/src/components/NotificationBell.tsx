@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 import { api } from '../api/client';
+import { getSocket } from '../api/socket';
 
 interface Notification {
   id: string;
@@ -19,12 +20,25 @@ interface Notification {
 // assigned to). This is where "reminder sent to the assignee" actually becomes visible to them.
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
 
   const { data: notifications } = useQuery<Notification[]>({
     queryKey: ['notifications', 'mine'],
     queryFn: async () => (await api.get('/notifications')).data,
     refetchInterval: 30000,
   });
+
+  // Real-time: the badge updates the instant a reminder/notification fires for this user,
+  // no 30-second poll wait needed.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const onChanged = () => qc.invalidateQueries({ queryKey: ['notifications', 'mine'] });
+    socket.on('notifications:changed', onChanged);
+    return () => {
+      socket.off('notifications:changed', onChanged);
+    };
+  }, [qc]);
 
   const count = notifications?.length ?? 0;
 

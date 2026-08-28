@@ -1,14 +1,16 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutGrid, GanttChartSquare, LineChart, FileText, LogOut, Sparkles, MessageCircle, Users as UsersIcon } from 'lucide-react';
+import { LayoutGrid, GanttChartSquare, LineChart, FileText, LogOut, Sparkles, MessageCircle, Users as UsersIcon, Zap } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import clsx from 'clsx';
 import NotificationBell from './NotificationBell';
+import { disconnectSocket } from '../api/socket';
 
 const nav = [
   { to: '/board', label: 'Board', icon: LayoutGrid },
   { to: '/workflows', label: 'Workflows', icon: GanttChartSquare },
   { to: '/dashboard', label: 'Dashboard', icon: LineChart },
   { to: '/reports', label: 'Reports', icon: FileText },
+  { to: '/automation', label: 'Automation', icon: Zap },
   { to: '/chat', label: 'AI Assistant', icon: MessageCircle },
 ];
 
@@ -57,6 +59,7 @@ export default function Layout() {
               className="text-slate-400 hover:text-red-500"
               title="Log out"
               onClick={() => {
+                disconnectSocket();
                 logout();
                 navigate('/login');
               }}
