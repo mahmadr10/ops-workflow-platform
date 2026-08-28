@@ -55,7 +55,7 @@ Powered by [ai.service.ts](backend/src/services/ai.service.ts), provider-agnosti
 - Suggested next action for stalled items (e.g. "Candidate waiting 9 days -> Schedule interview")
 - Auto-generated professional notes on every status transition
 - AI executive summaries for weekly/monthly reports
-- **AI chatbot** (bonus): ask plain-English questions about live operational data, e.g. "Which candidates have been waiting the longest?", from the **AI Assistant** page. The model only ever sees a real, freshly-queried snapshot of your actual items, so it cannot invent records.
+- **AI chatbot** (bonus): a floating assistant on every page, ask plain-English questions about live operational data, e.g. "Which candidates have been waiting the longest?". The model only ever sees a real, freshly-queried snapshot of your actual items, so it cannot invent records. **Access is department-walled**: each user has a `Department` (set by an Admin from Team Accounts); the chatbot restricts operational data to that user's own department and politely refuses questions about others, admins/managers default to ALL (full access). General company knowledge (services, offices, leadership, condensed from DigitalSofts' own public website) is available to everyone regardless of department.
 
 Most of these load automatically, the daily standup appears the moment the Board opens and an item's AI summary loads the first time its card is opened, no button click required; a small refresh icon regenerates either on demand.
 
