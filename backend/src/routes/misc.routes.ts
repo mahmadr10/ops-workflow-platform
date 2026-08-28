@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole, blockReadonlyWrites } from '../middleware/auth';
-import { asyncHandler } from '../middleware/errorHandler';
+import { asyncHandler, ApiError } from '../middleware/errorHandler';
 import { reminderService } from '../services/reminder.service';
 
 // Small supporting routers: users list (for assignee pickers), labels, reminder rules, notifications log.
@@ -12,8 +14,62 @@ usersRouter.use(requireAuth, blockReadonlyWrites);
 usersRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
-    const users = await prisma.user.findMany({ select: { id: true, name: true, email: true, role: true } });
+    const users = await prisma.user.findMany({
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
     res.json(users);
+  })
+);
+
+function generatePassword(): string {
+  // Readable-ish random password: e.g. "k3f9-Qm2x-7hLp"
+  return crypto.randomBytes(9).toString('base64url').match(/.{1,4}/g)!.join('-');
+}
+
+const createUserSchema = z.object({
+  name: z.string().min(2).max(100),
+  email: z.string().email(),
+  role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE', 'READONLY']),
+  password: z.string().min(8).max(72).optional(),
+});
+
+// POST /api/users - Admin creates a new team account directly (no self-service signup needed).
+// If no password is given, a random one is generated and returned once in the response so the
+// admin can hand it to the new user; it is never stored or shown again.
+usersRouter.post(
+  '/',
+  requireRole('ADMIN'),
+  asyncHandler(async (req, res) => {
+    const data = createUserSchema.parse(req.body);
+    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    if (existing) throw new ApiError(409, 'A user with this email already exists');
+
+    const temporaryPassword = data.password || generatePassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+    const user = await prisma.user.create({
+      data: { name: data.name, email: data.email, role: data.role, passwordHash },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+    });
+
+    res.status(201).json({ user, temporaryPassword });
+  })
+);
+
+const updateUserRoleSchema = z.object({ role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE', 'READONLY']) });
+
+// PATCH /api/users/:id/role - Admin changes an existing user's role
+usersRouter.patch(
+  '/:id/role',
+  requireRole('ADMIN'),
+  asyncHandler(async (req, res) => {
+    const { role } = updateUserRoleSchema.parse(req.body);
+    const user = await prisma.user.update({
+      where: { id: req.params.id },
+      data: { role },
+      select: { id: true, name: true, email: true, role: true },
+    });
+    res.json(user);
   })
 );
 
