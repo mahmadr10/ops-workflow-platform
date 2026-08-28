@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports';
 import Chatbot from './pages/Chatbot';
 import Users from './pages/Users';
+import Automation from './pages/Automation';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = useAuth((s) => s.token);
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/chat" element={<Chatbot />} />
+        <Route path="/automation" element={<Automation />} />
         <Route
           path="/users"
           element={
