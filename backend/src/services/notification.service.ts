@@ -19,24 +19,6 @@ async function sendWebhook(url: string, payload: Record<string, unknown>) {
   if (!res.ok) throw new Error(`Webhook responded ${res.status}`);
 }
 
-async function sendSlack(text: string) {
-  const url = process.env.SLACK_WEBHOOK_URL;
-  if (!url) throw new Error('SLACK_WEBHOOK_URL not configured');
-  await sendWebhook(url, { text });
-}
-
-async function sendDiscord(text: string) {
-  const url = process.env.DISCORD_WEBHOOK_URL;
-  if (!url) throw new Error('DISCORD_WEBHOOK_URL not configured');
-  await sendWebhook(url, { content: text });
-}
-
-async function sendTeams(text: string) {
-  const url = process.env.TEAMS_WEBHOOK_URL;
-  if (!url) throw new Error('TEAMS_WEBHOOK_URL not configured');
-  await sendWebhook(url, { text });
-}
-
 async function sendGenericWebhook(subject: string, message: string, meta: Record<string, unknown>) {
   const url = process.env.GENERIC_WEBHOOK_URL;
   if (!url) throw new Error('GENERIC_WEBHOOK_URL not configured');
@@ -86,15 +68,6 @@ export const notificationService = {
 
     try {
       switch (params.channel) {
-        case 'SLACK':
-          await sendSlack(`*${params.subject}*\n${params.message}`);
-          break;
-        case 'DISCORD':
-          await sendDiscord(`**${params.subject}**\n${params.message}`);
-          break;
-        case 'TEAMS':
-          await sendTeams(`${params.subject}\n${params.message}`);
-          break;
         case 'WEBHOOK':
           await sendGenericWebhook(params.subject, params.message, { itemId: params.itemId });
           break;

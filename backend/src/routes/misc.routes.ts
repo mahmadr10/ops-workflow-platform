@@ -125,7 +125,7 @@ const ruleSchema = z.object({
   statusId: z.string().uuid(),
   daysInStatus: z.number().int().min(0),
   message: z.string().min(1).max(500),
-  channels: z.array(z.enum(['EMAIL', 'SLACK', 'DISCORD', 'TEAMS', 'WEBHOOK'])).min(1),
+  channels: z.array(z.enum(['EMAIL', 'WEBHOOK'])).min(1),
 });
 reminderRulesRouter.post(
   '/',

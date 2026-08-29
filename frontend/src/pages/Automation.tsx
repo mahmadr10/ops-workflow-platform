@@ -6,8 +6,8 @@ import { api } from '../api/client';
 import { useAuth } from '../store/auth';
 import type { Workflow } from '../types';
 
-type Channel = 'EMAIL' | 'SLACK' | 'DISCORD' | 'TEAMS' | 'WEBHOOK';
-const allChannels: Channel[] = ['EMAIL', 'SLACK', 'DISCORD', 'TEAMS', 'WEBHOOK'];
+type Channel = 'EMAIL' | 'WEBHOOK';
+const allChannels: Channel[] = ['EMAIL', 'WEBHOOK'];
 
 interface Rule {
   id: string;

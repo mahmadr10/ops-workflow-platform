@@ -39,9 +39,6 @@ enum Priority {
 
 enum NotificationChannel {
   EMAIL
-  SLACK
-  DISCORD
-  TEAMS
   WEBHOOK
 }
 

@@ -73,7 +73,7 @@ Combinable filters by text, assignee, priority, label, workflow, status, and due
 Export to CSV, Excel (.xlsx), and PDF; generate an AI executive summary for the current week or month.
 
 ### 9. Notification Engine
-Adapter-per-channel: Email (SMTP/nodemailer), Slack, Discord, Microsoft Teams, and generic webhooks. Every send is persisted with a `PENDING` -> `SENT`/`FAILED` audit trail regardless of whether the external channel is configured in a given environment.
+Adapter-per-channel: Email (SMTP/nodemailer) and a generic webhook. Every send is persisted with a `PENDING` -> `SENT`/`FAILED` audit trail regardless of whether the external channel is configured in a given environment.
 
 ### 10. Reminder Automation
 Declarative rules: `IF status == X AND daysInStatus >= N THEN notify`. Evaluated hourly by a cron job that also doubles as the bonus AI monitoring agent, recomputing risk scores and AI next-action suggestions for every active item. Authored from a real screen (**Automation** in the sidebar), not just the API, see [Automation.tsx](frontend/src/pages/Automation.tsx).

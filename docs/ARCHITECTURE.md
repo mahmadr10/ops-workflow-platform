@@ -23,7 +23,7 @@ flowchart TB
 
     subgraph External
         LLM[LLM Provider - Groq / OpenAI / Ollama...]
-        SLACK[Slack / Discord / Teams Webhooks]
+        WEBHOOK[Generic Webhook]
         SMTP[SMTP]
     end
 
@@ -34,7 +34,7 @@ flowchart TB
     CRON --> PG
     CRON --> AISVC
     CRON --> NOTIFSVC
-    NOTIFSVC --> SLACK
+    NOTIFSVC --> WEBHOOK
     NOTIFSVC --> SMTP
     ROUTES -.optional cache.-> REDIS
 ```
