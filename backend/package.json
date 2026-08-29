@@ -1,6 +1,7 @@
 {
   "name": "ops-platform-backend",
   "version": "1.0.0",
+  "author": "M. Ahmad",
   "description": "AI-Powered Operations & Workflow Management Platform - Backend API",
   "main": "dist/index.js",
   "scripts": {

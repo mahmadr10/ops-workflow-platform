@@ -84,6 +84,8 @@ export default function Login() {
             </div>
           </div>
         </div>
+
+        <div className="text-center text-xs text-slate-400 mt-5">Built by M. Ahmad</div>
       </div>
     </div>
   );

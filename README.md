@@ -1,5 +1,7 @@
 # DigitalSofts Ops Platform
 
+Built by M. Ahmad
+
 AI-powered Operations & Workflow Management Platform. Tracks any business process (recruitment, sales pipeline, client projects, internal tasks, procurement) as a fully dynamic, admin-defined workflow, with a Jira-style Kanban board, an immutable activity audit log, AI-generated summaries and risk detection, an executive analytics dashboard, multi-channel notifications, and automated reminders.
 
 Built to evolve into an ERP module: entities, workflows, and custom fields are all data, not code.

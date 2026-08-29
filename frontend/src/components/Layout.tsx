@@ -67,6 +67,7 @@ export default function Layout() {
               <LogOut size={16} />
             </button>
           </div>
+          <div className="text-center text-[10px] text-slate-300 mt-2">Built by M. Ahmad</div>
         </div>
       </aside>
       <main className="flex-1 min-w-0 flex flex-col">

@@ -1,6 +1,7 @@
 {
   "name": "ops-platform-frontend",
   "version": "1.0.0",
+  "author": "M. Ahmad",
   "description": "AI-Powered Operations & Workflow Management Platform - Frontend",
   "type": "module",
   "scripts": {
