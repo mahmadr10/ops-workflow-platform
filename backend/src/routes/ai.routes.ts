@@ -77,7 +77,15 @@ aiRouter.post(
   })
 );
 
-const chatSchema = z.object({ question: z.string().min(3).max(500) });
+const chatSchema = z.object({
+  question: z.string().min(3).max(500),
+  // Prior turns from this open chat session, so follow-ups like "what about the second one" work.
+  // Capped client-side and again here so the prompt can't grow unbounded.
+  history: z
+    .array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().max(2000) }))
+    .max(12)
+    .optional(),
+});
 
 // POST /api/ai/chat - AI chatbot, department-walled. Answers general company questions for
 // everyone, but operational data ("which candidates have been waiting longest") is restricted to
@@ -88,7 +96,7 @@ const chatSchema = z.object({ question: z.string().min(3).max(500) });
 aiRouter.post(
   '/chat',
   asyncHandler(async (req, res) => {
-    const { question } = chatSchema.parse(req.body);
+    const { question, history } = chatSchema.parse(req.body);
 
     const me = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { department: true } });
     const department = me?.department || 'ALL';
@@ -115,7 +123,8 @@ aiRouter.post(
     }));
 
     const scopeLabel = DEPARTMENT_LABEL[department] || department;
-    const answer = await aiService.answerOperationalQuestion(question, JSON.stringify(snapshot), COMPANY_KNOWLEDGE, scopeLabel);
+    const turns = (history || []).map((h) => ({ role: h.role, content: h.text }));
+    const answer = await aiService.answerOperationalQuestion(question, JSON.stringify(snapshot), COMPANY_KNOWLEDGE, scopeLabel, turns);
     res.json({ answer, itemsConsidered: snapshot.length, department, scope: scopeLabel });
   })
 );

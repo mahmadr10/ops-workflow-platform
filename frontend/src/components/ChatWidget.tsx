@@ -88,11 +88,17 @@ export default function ChatWidget() {
 
   async function ask(question: string) {
     if (!question.trim() || loading) return;
+    // Send the last few turns of this open chat so follow-ups like "what about the second one"
+    // actually work, this only lives in the browser tab, it resets on refresh, it's not saved.
+    const history = messages
+      .filter((m) => m !== WELCOME)
+      .slice(-8)
+      .map((m) => ({ role: m.role, text: m.text }));
     setMessages((m) => [...m, { role: 'user', text: question }]);
     setInput('');
     setLoading(true);
     try {
-      const res = await api.post('/ai/chat', { question });
+      const res = await api.post('/ai/chat', { question, history });
       setMessages((m) => [...m, { role: 'assistant', text: res.data.answer }]);
       if (!open) setUnread(true);
     } catch {

@@ -28,7 +28,12 @@ const provider = process.env.AI_PROVIDER || 'groq';
 
 const client = apiKey ? new OpenAI({ apiKey, baseURL }) : null;
 
-async function complete(system: string, user: string, maxTokens = 900): Promise<string> {
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+async function complete(system: string, user: string, maxTokens = 900, history: ChatTurn[] = []): Promise<string> {
   if (!client) {
     logger.warn('ai_fallback_mock_used_no_api_key');
     return mockCompletion(system, user);
@@ -40,6 +45,7 @@ async function complete(system: string, user: string, maxTokens = 900): Promise<
       temperature: 0.4,
       messages: [
         { role: 'system', content: system },
+        ...history,
         { role: 'user', content: user },
       ],
     });
@@ -114,12 +120,14 @@ export const aiService = {
     question: string,
     dataSnapshot: string,
     companyKnowledge: string,
-    scopeLabel: string
+    scopeLabel: string,
+    history: ChatTurn[] = []
   ): Promise<string> {
     return complete(
-      `You are the internal AI assistant for DigitalSofts' operations platform. You have two knowledge sources: (1) general company knowledge, available to everyone, and (2) live operational data, which is restricted to this user's own department: ${scopeLabel}. Answer using ONLY what is given below, never invent items, people, numbers, or company facts. If the question asks about operational data from a different department than the one provided, say plainly that you can only see that user's own department's data and don't answer it. General company questions (services, products, offices, leadership) can always be answered from the company knowledge section. Be concise and use specific names/numbers when they're available. Reply in plain conversational text only, this is displayed in a narrow chat bubble with no markdown rendering: never use asterisks for bold/italic, never use markdown tables or pipe characters, never use headings or backticks. For lists, use a plain hyphen and a line break per item, nothing else.`,
+      `You are the internal AI assistant for DigitalSofts' operations platform. You have two knowledge sources: (1) general company knowledge, available to everyone, and (2) live operational data, which is restricted to this user's own department: ${scopeLabel}. Answer using ONLY what is given below, never invent items, people, numbers, or company facts. If the question asks about operational data from a different department than the one provided, say plainly that you can only see that user's own department's data and don't answer it. General company questions (services, products, offices, leadership) can always be answered from the company knowledge section. Be concise and use specific names/numbers when they're available. This conversation may continue across multiple turns, use the prior messages for context (e.g. "the second one" refers back to something you just listed), but always re-check the live data section below for facts, never trust a number or name from earlier in the conversation over what's in the current data snapshot. Reply in plain conversational text only, this is displayed in a narrow chat bubble with no markdown rendering: never use asterisks for bold/italic, never use markdown tables or pipe characters, never use headings or backticks. For lists, use a plain hyphen and a line break per item, nothing else.`,
       `=== General company knowledge (always available) ===\n${companyKnowledge}\n\n=== Live operational data (scope: ${scopeLabel}) ===\n${dataSnapshot}\n\nQuestion: ${question}`,
-      900
+      900,
+      history
     );
   },
 
